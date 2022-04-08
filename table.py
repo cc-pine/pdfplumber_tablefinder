@@ -645,6 +645,7 @@ class TableFinder2(object):
             self.settings["intersection_y_tolerance"],
         )
         self.cells = intersections_to_cells(self.intersections)
+        self.cells = self.remove_cells()
         self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells)]
 
     @staticmethod
@@ -800,3 +801,6 @@ class TableFinder2(object):
 
         return adequate_edges
 
+
+def calc_cell_size(cell):
+    
