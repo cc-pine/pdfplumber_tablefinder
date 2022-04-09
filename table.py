@@ -645,8 +645,8 @@ class TableFinder2(object):
             self.settings["intersection_y_tolerance"],
         )
         self.cells = intersections_to_cells(self.intersections)
-        self.cells = self.remove_cells()
-        self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells)]
+        self.cells_dev = self.remove_too_small_cells(self.cells)
+        self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells_dev)]
 
     @staticmethod
     def resolve_table_settings(table_settings={}):
@@ -794,13 +794,47 @@ class TableFinder2(object):
         page_width = self.page.width
         page_height = self.page.height
 
-        adequate_edges = []
+        edges_adequate = []
         for edge in self.edges:
             if edge['width'] < ratio * page_width and edge['height'] < ratio * page_height:
-                adequate_edges.append(edge)
+                edges_adequate.append(edge)
 
-        return adequate_edges
+        return edges_adequate
+
+    def remove_too_short_edges(self, ratio=0.95):
+        page_width = self.page.width
+        page_height = self.page.height
+
+        edges_adequate = []
+        for edge in self.edges:
+            if edge['width'] < ratio * page_width and edge['height'] < ratio * page_height:
+                edges_adequate.append(edge)
+
+        return edges_adequate
+
+    def remove_too_small_cells(self, cells):
+        min_char_width, min_char_height = get_min_char_size(self.page)
+        cells_adequate = []
+        for cell in cells:
+            cell_width, cell_height = get_cell_size(cell)
+            if cell_width > min_char_width and cell_height > min_char_height:
+                cells_adequate.append(cell)
+
+        return cells_adequate
 
 
-def calc_cell_size(cell):
-    
+
+def get_min_char_size(page):
+    chars = page.chars
+    min_width = page.width
+    min_height = page.height
+    for char in chars:
+        min_width = min(min_width, char['width'])
+        min_height = min(min_height, char['height'])
+
+    return min_width, min_height
+
+
+def get_cell_size(cell):
+    # width, height
+    return cell[2] - cell[0], cell[3] - cell[1]
