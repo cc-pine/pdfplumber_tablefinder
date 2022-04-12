@@ -796,7 +796,10 @@ class TableFinder2(object):
 
         edges_adequate = []
         for edge in self.edges:
-            if edge['width'] < ratio * page_width and edge['height'] < ratio * page_height:
+            if (
+                edge["width"] < ratio * page_width
+                and edge["height"] < ratio * page_height
+            ):
                 edges_adequate.append(edge)
 
         return edges_adequate
@@ -807,7 +810,10 @@ class TableFinder2(object):
 
         edges_adequate = []
         for edge in self.edges:
-            if edge['width'] < ratio * page_width and edge['height'] < ratio * page_height:
+            if (
+                edge["width"] < ratio * page_width
+                and edge["height"] < ratio * page_height
+            ):
                 edges_adequate.append(edge)
 
         return edges_adequate
@@ -819,9 +825,16 @@ class TableFinder2(object):
             cell_width, cell_height = get_cell_size(cell)
             if cell_width > min_char_width and cell_height > min_char_height:
                 cells_adequate.append(cell)
-
         return cells_adequate
 
+
+
+
+def get_bbox_from_table(table):
+    """
+    returns bounding box of table: (x1, y1, x2, y2)
+    """
+    return table["bbox"]
 
 
 def get_min_char_size(page):
@@ -829,8 +842,8 @@ def get_min_char_size(page):
     min_width = page.width
     min_height = page.height
     for char in chars:
-        min_width = min(min_width, char['width'])
-        min_height = min(min_height, char['height'])
+        min_width = min(min_width, char["width"])
+        min_height = min(min_height, char["height"])
 
     return min_width, min_height
 
@@ -838,3 +851,66 @@ def get_min_char_size(page):
 def get_cell_size(cell):
     # width, height
     return cell[2] - cell[0], cell[3] - cell[1]
+
+
+def overlap_bboxes(bbox_list1, bbox_list2):
+    """
+    return: list of pair of indexes with overlap
+    """
+    # bbox: (x1, y1, x2, y2)
+    bbox_events = []
+
+    for i, bbox in enumerate(bbox_list1):
+        bbox_events.append(("box1", bbox[0], i, 0))
+        bbox_events.append(("box1", bbox[2], i, 1))
+    for i, bbox in enumerate(bbox_list2):
+        bbox_events.append(("box2", bbox[0], i, 0))
+        bbox_events.append(("box2", bbox[2], i, 1))
+    bbox_events.sort(key=lambda x: (x[1], x[3]))
+    bbox1_sweeping = []
+    bbox2_sweeping = []
+    overlap_list = []
+    # print(bbox_events)
+
+    for event in bbox_events:
+        # print("loop:", event)
+        bbox_type = event[0]
+        bbox_idx = event[2]
+        if bbox_type == "box1":
+            _, y1, _, y2 = bbox_list1[bbox_idx]
+            if event[3] == 0:
+                bbox1_sweeping.append((bbox_idx, y1, y2))
+                for bbox2 in bbox2_sweeping:
+                    bbox2_idx, bbox2_y1, bbox2_y2 = bbox2
+                    if bbox2_y1 <= y2 and bbox2_y2 >= y1:
+                        overlap_list.append((bbox_idx, bbox2_idx))
+            elif event[3] == 1:
+                bbox1_sweeping.remove((bbox_idx, y1, y2))
+        else:
+            _, y1, _, y2 = bbox_list2[bbox_idx]
+            if event[3] == 0:
+                bbox2_sweeping.append((bbox_idx, y1, y2))
+                for bbox1 in bbox1_sweeping:
+                    bbox1_idx, bbox1_y1, bbox1_y2 = bbox1
+                    if bbox1_y1 <= y2 and bbox1_y2 >= y1:
+                        overlap_list.append((bbox1_idx, bbox_idx))
+            elif event[3] == 1:
+                bbox2_sweeping.remove((bbox_idx, y1, y2))
+        # print(bbox1_sweeping, bbox2_sweeping)
+
+    assert len(bbox1_sweeping) == 0
+
+    return overlap_list
+
+
+def naive_overlap_bboxes(bbox_list1, bbox_list2):
+    overlap_list = []
+    for i, bbox1 in enumerate(bbox_list1):
+        x1_b1, y1_b1, x2_b1, y2_b1 = bbox1
+        for j, bbox2 in enumerate(bbox_list2):
+            x1_b2, y1_b2, x2_b2, y2_b2 = bbox2
+            if (x1_b1 <= x2_b2 and x2_b1 >= x1_b2) and (
+                y1_b1 <= y2_b2 and y2_b1 >= y1_b2
+            ):
+                overlap_list.append((i, j))
+    return overlap_list
