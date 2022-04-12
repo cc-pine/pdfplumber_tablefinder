@@ -638,15 +638,17 @@ class TableFinder2(object):
         self.page = page
         self.settings = self.resolve_table_settings(settings)
         self.edges = self.get_edges()
-        self.edges_dev = self.remove_too_long_edges()
+        self.edges_dev = self.remove_too_long_edges()  # v1
         self.intersections = edges_to_intersections(
             self.edges_dev,
             self.settings["intersection_x_tolerance"],
             self.settings["intersection_y_tolerance"],
         )
         self.cells = intersections_to_cells(self.intersections)
-        self.cells_dev = self.remove_too_small_cells(self.cells)
+        self.cells_dev = self.remove_too_small_cells(self.cells)  # v2
         self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells_dev)]
+        if len(self.tables) > 0:  # v4
+            self.tables = self.remove_table_without_chars(self.tables, self.page.chars)
 
     @staticmethod
     def resolve_table_settings(table_settings={}):
@@ -827,7 +829,17 @@ class TableFinder2(object):
                 cells_adequate.append(cell)
         return cells_adequate
 
+    def remove_table_without_chars(self, tables, chars):
+        ret_tables = []
+        tables_bbox = [table.bbox for table in tables]
+        chars_bbox = [(c["x0"], c["y0"], c["x1"], c["y1"]) for c in chars]
+        overlaps = overlap_bboxes(tables_bbox, chars_bbox)
+        idx_tables_with_overlap = set([p[0] for p in overlaps])
+        for i, table in enumerate(tables):
+            if i in idx_tables_with_overlap:
+                ret_tables.append(table)
 
+        return ret_tables
 
 
 def get_bbox_from_table(table):
