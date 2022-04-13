@@ -647,8 +647,9 @@ class TableFinder2(object):
         self.cells = intersections_to_cells(self.intersections)
         self.cells_dev = self.remove_too_small_cells(self.cells)  # v2
         self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells_dev)]
-        if len(self.tables) > 0:  # v4
-            self.tables = self.remove_table_without_chars(self.tables, self.page.chars)
+        if len(self.tables) > 0:
+            self.tables = self.remove_table_without_chars(self.tables, self.page.chars) # v4
+            self.tables = self.remove_table_with_lt_two_cells(self.tables) #v5
 
     @staticmethod
     def resolve_table_settings(table_settings={}):
@@ -837,6 +838,14 @@ class TableFinder2(object):
         idx_tables_with_overlap = set([p[0] for p in overlaps])
         for i, table in enumerate(tables):
             if i in idx_tables_with_overlap:
+                ret_tables.append(table)
+
+        return ret_tables
+
+    def remove_table_with_lt_two_cells(self, tables):
+        ret_tables = []
+        for table in tables:
+            if len(table.cells) > 2:
                 ret_tables.append(table)
 
         return ret_tables
