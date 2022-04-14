@@ -1,6 +1,9 @@
 import itertools
 from operator import itemgetter
 
+import PIL.Image
+import PIL.ImageDraw
+import PIL.ImageFont
 from pdfminer.pdftypes import PDFObjRef
 from pdfminer.psparser import PSLiteral
 from pdfminer.utils import PDFDocEncoding
@@ -692,3 +695,77 @@ def filter_edges(edges, orientation=None, edge_type=None, min_length=1):
 
     edges = filter(test, edges)
     return list(edges)
+
+
+"""
+developing
+"""
+
+
+def visualize_rectangular(page, bboxs, stroke_width=1, fontsize=10, resolution=150):
+    DEFAULT_RESOLUTION = 72
+
+    class COLORS(object):
+        RED = (255, 0, 0)
+        GREEN = (0, 255, 0)
+        BLUE = (0, 0, 255)
+        TRANSPARENT = (0, 0, 0, 0)
+
+    fill = COLORS.BLUE + (50,)
+    im = page.to_image(resolution=resolution).original
+    annotated = PIL.Image.new(im.mode, im.size)
+    annotated.paste(im)
+    try:
+        arial_font = PIL.ImageFont.truetype("arial.ttf", fontsize)
+    except:
+        arial_font = PIL.ImageFont.truetype("Arial Unicode.ttf", fontsize)
+    draw = PIL.ImageDraw.Draw(annotated, "RGBA")
+    for i, bbox in enumerate(bboxs):
+        x0, top, x1, bottom = bbox
+        x0 = x0 * resolution / DEFAULT_RESOLUTION
+        top = top * resolution / DEFAULT_RESOLUTION
+        x1 = x1 * resolution / DEFAULT_RESOLUTION
+        bottom = bottom * resolution / DEFAULT_RESOLUTION
+        half = stroke_width / 2
+        x0 += half
+        top += half
+        x1 -= half
+        bottom -= half
+        draw.rectangle((x0, top, x1, bottom), fill, COLORS.TRANSPARENT)
+        draw.text((x0, top), str(i), COLORS.BLUE, font=arial_font)
+    return annotated
+
+
+def visualize_table_finder_result(page, stroke_width=1, fontsize=10, resolution=150):
+    DEFAULT_RESOLUTION = 72
+
+    class COLORS(object):
+        RED = (255, 0, 0)
+        GREEN = (0, 255, 0)
+        BLUE = (0, 0, 255)
+        TRANSPARENT = (0, 0, 0, 0)
+
+    fill = COLORS.BLUE + (50,)
+    table_finder = page.debug_tablefinder2()
+    im = page.to_image(resolution=resolution).original
+    annotated = PIL.Image.new(im.mode, im.size)
+    annotated.paste(im)
+    try:
+        arial_font = PIL.ImageFont.truetype("arial.ttf", fontsize)
+    except:
+        arial_font = PIL.ImageFont.truetype("Arial Unicode.ttf", fontsize)
+    draw = PIL.ImageDraw.Draw(annotated, "RGBA")
+    for i, table in enumerate(table_finder.tables):
+        x0, top, x1, bottom = table.bbox
+        x0 = x0 * resolution / DEFAULT_RESOLUTION
+        top = top * resolution / DEFAULT_RESOLUTION
+        x1 = x1 * resolution / DEFAULT_RESOLUTION
+        bottom = bottom * resolution / DEFAULT_RESOLUTION
+        half = stroke_width / 2
+        x0 += half
+        top += half
+        x1 -= half
+        bottom -= half
+        draw.rectangle((x0, top, x1, bottom), fill, COLORS.TRANSPARENT)
+        draw.text((x0, top), str(i), COLORS.BLUE, font=arial_font)
+    return annotated

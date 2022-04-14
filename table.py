@@ -648,8 +648,12 @@ class TableFinder2(object):
         self.cells_dev = self.remove_too_small_cells(self.cells)  # v2
         self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells_dev)]
         if len(self.tables) > 0:
-            self.tables = self.remove_table_without_chars(self.tables, self.page.chars) # v4
-            self.tables = self.remove_table_with_lt_two_cells(self.tables) #v5
+            self.tables = self.remove_table_without_chars(
+                self.tables, self.page.extract_words() # chars -> extract_words v6_2
+            )  # v4
+            self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v5
+            self.tables = self.remove_table_with_unusual_shape(self.tables)  # v6
+            self.tables = self.remove_table_with_single_col_row(self.tables)  # v6
 
     @staticmethod
     def resolve_table_settings(table_settings={}):
@@ -833,7 +837,7 @@ class TableFinder2(object):
     def remove_table_without_chars(self, tables, chars):
         ret_tables = []
         tables_bbox = [table.bbox for table in tables]
-        chars_bbox = [(c["x0"], c["y0"], c["x1"], c["y1"]) for c in chars]
+        chars_bbox = [(c["x0"], c["top"], c["x1"], c["bottom"]) for c in chars]
         overlaps = overlap_bboxes(tables_bbox, chars_bbox)
         idx_tables_with_overlap = set([p[0] for p in overlaps])
         for i, table in enumerate(tables):
@@ -848,6 +852,38 @@ class TableFinder2(object):
             if len(table.cells) > 2:
                 ret_tables.append(table)
 
+        return ret_tables
+
+    def remove_table_with_unusual_shape(self, tables):
+        ret_tables = []
+        for table in tables:
+            cell_widths = set()
+            cell_heights = set()
+            for cell in table.cells:
+                cell_width, cell_height = get_cell_size(cell)
+                cell_widths.add(cell_width)
+                cell_heights.add(cell_height)
+                # 形が全部違う
+            if len(cell_widths) == len(table.cells) and len(cell_heights) == len(
+                table.cells
+            ):
+                continue
+            ret_tables.append(table)
+        return ret_tables
+
+    def remove_table_with_single_col_row(self, tables):
+        ret_tables = []
+        for table in tables:
+            n_col, n_row = get_cell_nums(table)
+            if n_col == 1:
+                cell_width, _ = get_cell_size(table.cells[0])
+                if cell_width < table.page.width * 0.03:
+                    continue
+            if n_row == 1:
+                _, cell_height = get_cell_size(table.cells[0])
+                if cell_height < table.page.height * 0.02:
+                    continue
+            ret_tables.append(table)
         return ret_tables
 
 
@@ -935,3 +971,16 @@ def naive_overlap_bboxes(bbox_list1, bbox_list2):
             ):
                 overlap_list.append((i, j))
     return overlap_list
+
+
+def get_cell_nums(table):
+    """
+    return:
+        n_col, n_row: The number of cells on table in a col/row direction
+    """
+    col = set((cell[0], cell[2]) for cell in table.cells)
+    row = set((cell[1], cell[3]) for cell in table.cells)
+
+    n_col = len(col)
+    n_row = len(row)
+    return n_col, n_row
