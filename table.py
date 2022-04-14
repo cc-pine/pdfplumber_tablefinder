@@ -639,7 +639,7 @@ class TableFinder2(object):
         self.settings = self.resolve_table_settings(settings)
         self.edges = self.get_edges()
         self.edges_dev = self.remove_too_long_edges()  # v1
-        self.edges_dev = self.remove_terminal_edges(self.page, self.edges)
+        self.edges_dev = self.remove_terminal_edges(self.page, self.edges_dev)
         self.intersections = edges_to_intersections(
             self.edges_dev,
             self.settings["intersection_x_tolerance"],
