@@ -639,6 +639,7 @@ class TableFinder2(object):
         self.settings = self.resolve_table_settings(settings)
         self.edges = self.get_edges()
         self.edges_dev = self.remove_too_long_edges()  # v1
+        self.edges_dev = self.remove_terminal_edges(self.page, self.edges)
         self.intersections = edges_to_intersections(
             self.edges_dev,
             self.settings["intersection_x_tolerance"],
@@ -649,7 +650,7 @@ class TableFinder2(object):
         self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells_dev)]
         if len(self.tables) > 0:
             self.tables = self.remove_table_without_chars(
-                self.tables, self.page.extract_words() # chars -> extract_words v6_2
+                self.tables, self.page.extract_words()  # chars -> extract_words v6_2
             )  # v4
             self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v5
             self.tables = self.remove_table_with_unusual_shape(self.tables)  # v6
@@ -811,19 +812,18 @@ class TableFinder2(object):
 
         return edges_adequate
 
-    def remove_too_short_edges(self, ratio=0.95):
-        page_width = self.page.width
-        page_height = self.page.height
-
-        edges_adequate = []
-        for edge in self.edges:
+    def remove_terminal_edges(self, page, edges):
+        edges_ret = []
+        for edge in edges:
             if (
-                edge["width"] < ratio * page_width
-                and edge["height"] < ratio * page_height
+                edge["x0"] <= 0
+                or edge["x1"] >= page.width
+                or edge["top"] <= 0
+                or edge["bottom"] >= page.height
             ):
-                edges_adequate.append(edge)
-
-        return edges_adequate
+                continue
+            edges_ret.append(edge)
+        return edges_ret
 
     def remove_too_small_cells(self, cells):
         min_char_width, min_char_height = get_min_char_size(self.page)
