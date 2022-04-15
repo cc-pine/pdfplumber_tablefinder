@@ -299,13 +299,13 @@ class Page(Container):
         return f"<Page:{self.page_number}>"
 
     ### for development
-    def debug_tablefinder2(self, table_settings={}):
+    def debug_tablefinder2(self, table_settings={"snap_tolerance":1e-2}):
         return TableFinder2(self, table_settings)
 
-    def find_tables2(self, table_settings={}):
+    def find_tables2(self, table_settings={"snap_tolerance":1e-2}):
         return TableFinder2(self, table_settings).tables
 
-    def extract_tables2(self, table_settings={}):
+    def extract_tables2(self, table_settings={"snap_tolerance":1e-2}):
         table_settings = TableFinder2.resolve_table_settings(table_settings)
         tables = self.find_tables2(table_settings)
 
@@ -317,7 +317,7 @@ class Page(Container):
 
         return [table.extract(**extract_kwargs) for table in tables]
 
-    def extract_table2(self, table_settings={}):
+    def extract_table2(self, table_settings={"snap_tolerance":1e-2}):
         table_settings = TableFinder2.resolve_table_settings(table_settings)
         tables = self.find_tables2(table_settings)
 

@@ -216,7 +216,7 @@ class PageImage(object):
         )
         return self
 
-    def debug_tablefinder(self, tf={}):
+    def debug_tablefinder(self, tf={"snap_tolerance":1e-2}):
         if isinstance(tf, TableFinder):
             pass
         elif isinstance(tf, dict):

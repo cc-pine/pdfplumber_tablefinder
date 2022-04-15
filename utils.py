@@ -769,3 +769,11 @@ def visualize_table_finder_result(page, stroke_width=1, fontsize=10, resolution=
         draw.rectangle((x0, top, x1, bottom), fill, COLORS.TRANSPARENT)
         draw.text((x0, top), str(i), COLORS.BLUE, font=arial_font)
     return annotated
+
+
+def get_bbox_from_object(obj):
+    return (obj["x0"], obj["top"], obj["x1"], obj["bottom"])
+
+
+def get_bboxlist_from_objectlist(obj_list):
+    return [get_bbox_from_object(obj) for obj in obj_list]
