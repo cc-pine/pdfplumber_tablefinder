@@ -638,10 +638,10 @@ class TableFinder2(object):
         self.page = page
         self.settings = self.resolve_table_settings(settings)
         self.edges = self.get_edges()
-        self.edges_dev = self.remove_too_long_edges()  # v1
-        self.edges_dev = self.remove_terminal_edges(self.page, self.edges_dev)
+        self.edges = self.remove_too_long_edges(self.page, self.edges)  # v1
+        self.edges = self.remove_terminal_edges(self.page, self.edges)
         self.intersections = edges_to_intersections(
-            self.edges_dev,
+            self.edges,
             self.settings["intersection_x_tolerance"],
             self.settings["intersection_y_tolerance"],
         )
@@ -798,12 +798,12 @@ class TableFinder2(object):
 
         return utils.filter_edges(edges, min_length=settings["edge_min_length"])
 
-    def remove_too_long_edges(self, ratio=0.95):
-        page_width = self.page.width
-        page_height = self.page.height
+    def remove_too_long_edges(self, page, edges, ratio=0.95):
+        page_width = page.width
+        page_height = page.height
 
         edges_adequate = []
-        for edge in self.edges:
+        for edge in edges:
             if (
                 edge["width"] < ratio * page_width
                 and edge["height"] < ratio * page_height

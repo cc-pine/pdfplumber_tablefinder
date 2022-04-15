@@ -736,7 +736,7 @@ def visualize_rectangular(page, bboxs, stroke_width=1, fontsize=10, resolution=1
     return annotated
 
 
-def visualize_table_finder_result(page, stroke_width=1, fontsize=10, resolution=150):
+def visualize_table_finder_result(page, stroke_width=1, fontsize=10, resolution=150, option={}):
     DEFAULT_RESOLUTION = 72
 
     class COLORS(object):
@@ -746,7 +746,7 @@ def visualize_table_finder_result(page, stroke_width=1, fontsize=10, resolution=
         TRANSPARENT = (0, 0, 0, 0)
 
     fill = COLORS.BLUE + (50,)
-    table_finder = page.debug_tablefinder2()
+    table_finder = page.debug_tablefinder2(option)
     im = page.to_image(resolution=resolution).original
     annotated = PIL.Image.new(im.mode, im.size)
     annotated.paste(im)
