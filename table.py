@@ -816,10 +816,10 @@ class TableFinder2(object):
         edges_ret = []
         for edge in edges:
             if (
-                edge["x0"] <= 0
-                or edge["x1"] >= page.width
-                or edge["top"] <= 0
-                or edge["bottom"] >= page.height
+                edge["x0"] <= page.height*0.03
+                or edge["x1"] >= page.width *0.97
+                or edge["top"] <= page.height * 0.03
+                or edge["bottom"] >= page.height * 0.97
             ):
                 continue
             edges_ret.append(edge)
