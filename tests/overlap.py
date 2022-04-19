@@ -1,7 +1,7 @@
 import time
 
 import numpy as np
-from pdfplumber.table import naive_overlap_bboxes, overlap_bboxes
+from pdfplumber.table import naive_get_overlapped_bboxes_pairs, get_overlapped_bboxes_pairs
 
 
 def test1():
@@ -14,8 +14,8 @@ def test1():
         (1.4, 2.4, 6, 3.8),
     ]
 
-    overlap1 = overlap_bboxes(bbox1_list, bbox2_list)
-    overlap2 = naive_overlap_bboxes(bbox1_list, bbox2_list)
+    overlap1 = get_overlapped_bboxes_pairs(bbox1_list, bbox2_list)
+    overlap2 = naive_get_overlapped_bboxes_pairs(bbox1_list, bbox2_list)
 
     print(overlap1)
     print(overlap2)
@@ -37,11 +37,11 @@ def test2(n_rec=100, seed=0):
     bbox2_list = [gen_rect() for _ in range(n_rec)]
 
     sweep_start = time.perf_counter()
-    overlap1 = overlap_bboxes(bbox1_list, bbox2_list)
+    overlap1 = get_overlapped_bboxes_pairs(bbox1_list, bbox2_list)
     sweep_time = time.perf_counter() - sweep_start
 
     naive_start = time.perf_counter()
-    overlap2 = naive_overlap_bboxes(bbox1_list, bbox2_list)
+    overlap2 = naive_get_overlapped_bboxes_pairs(bbox1_list, bbox2_list)
     naive_time = time.perf_counter() - naive_start
 
     print("Sweeping algorithm took:", sweep_time, "seconds")
