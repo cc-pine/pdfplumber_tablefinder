@@ -736,7 +736,9 @@ def visualize_rectangular(page, bboxs, stroke_width=1, fontsize=10, resolution=1
     return annotated
 
 
-def visualize_table_finder_result(page, stroke_width=1, fontsize=10, resolution=150, option={}):
+def visualize_table_finder_result(
+    page, stroke_width=1, fontsize=10, resolution=150, option={}
+):
     DEFAULT_RESOLUTION = 72
 
     class COLORS(object):
@@ -777,3 +779,10 @@ def get_bbox_from_object(obj):
 
 def get_bboxlist_from_objectlist(obj_list):
     return [get_bbox_from_object(obj) for obj in obj_list]
+
+
+def get_overlapping_index(overlap_list, get_first=True):
+    if get_first:
+        return sorted(list(set([x[0] for x in overlap_list])))
+    else:
+        return sorted(list(set([x[1] for x in overlap_list])))
