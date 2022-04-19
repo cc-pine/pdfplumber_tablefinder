@@ -634,7 +634,7 @@ class TableFinder2(object):
     https://github.com/tabulapdf/tabula-extractor/issues/16
     """
 
-    def __init__(self, page, settings={"snap_tolerance":1e-2}):
+    def __init__(self, page, settings={"snap_tolerance": 1e-2}):
         self.page = page
         self.settings = self.resolve_table_settings(settings)
         self.edges = self.get_edges()
@@ -653,8 +653,12 @@ class TableFinder2(object):
                 self.tables, self.page.extract_words()  # chars -> extract_words v6_2
             )  # v4
             # self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v5 v8で削除
+            self.tables = self.remove_misdetected_table_with_two_cells(
+                self.page, self.tables
+            ) # v9
             self.tables = self.remove_table_with_unusual_shape(self.tables)  # v6
             self.tables = self.remove_table_with_single_col_row(self.tables)  # v6
+            self.tables = self.remove_figures(self.page, self.tables) # v9
 
     @staticmethod
     def resolve_table_settings(table_settings={}):
@@ -816,8 +820,8 @@ class TableFinder2(object):
         edges_ret = []
         for edge in edges:
             if (
-                edge["x0"] <= page.height*0.03
-                or edge["x1"] >= page.width *0.97
+                edge["x0"] <= page.height * 0.03
+                or edge["x1"] >= page.width * 0.97
                 or edge["top"] <= page.height * 0.03
                 or edge["bottom"] >= page.height * 0.97
             ):
@@ -838,7 +842,7 @@ class TableFinder2(object):
         ret_tables = []
         tables_bbox = [table.bbox for table in tables]
         chars_bbox = [(c["x0"], c["top"], c["x1"], c["bottom"]) for c in chars]
-        overlaps = overlap_bboxes(tables_bbox, chars_bbox)
+        overlaps = get_overlapped_bboxes_pairs(tables_bbox, chars_bbox)
         idx_tables_with_overlap = set([p[0] for p in overlaps])
         for i, table in enumerate(tables):
             if i in idx_tables_with_overlap:
@@ -846,12 +850,21 @@ class TableFinder2(object):
 
         return ret_tables
 
+    def remove_misdetected_table_with_two_cells(self, page, tables):
+        ret_tables = []
+        for table in tables:
+            if len(table.cells) == 2:
+                cells_with_overlap = get_cell_idxs_overlapped_with_chars(table, page)
+                if len(cells_with_overlap) == 1:
+                    continue
+                ret_tables.append(table)
+        return ret_tables
+
     def remove_table_with_lt_two_cells(self, tables):
         ret_tables = []
         for table in tables:
             if len(table.cells) > 2:
                 ret_tables.append(table)
-
         return ret_tables
 
     def remove_table_with_unusual_shape(self, tables):
@@ -886,6 +899,26 @@ class TableFinder2(object):
             ret_tables.append(table)
         return ret_tables
 
+    def remove_figures(self, page, tables, ratio=2):
+        ret_tables = []
+        for table in tables:
+            cells_bbox = table.cells
+            cells_with_overlap = get_cell_idxs_overlapped_with_chars(table, page)
+            if len(cells_with_overlap) < len(cells_bbox) / ratio:
+                continue
+            ret_tables.append(table)
+        return ret_tables
+
+
+def get_cell_idxs_overlapped_with_chars(table, page):
+    bbox = table.bbox
+    page_table_area = page.within_bbox(bbox)
+    cells_bbox = table.cells
+    chars_bbox = utils.get_bboxlist_from_objectlist(page_table_area.chars)
+    overlap_list = get_overlapped_bboxes_pairs(cells_bbox, chars_bbox)
+    cells_with_overlap = utils.get_overlapping_index(overlap_list)
+    return cells_with_overlap
+
 
 def get_bbox_from_table(table):
     """
@@ -910,7 +943,7 @@ def get_cell_size(cell):
     return cell[2] - cell[0], cell[3] - cell[1]
 
 
-def overlap_bboxes(bbox_list1, bbox_list2):
+def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
     """
     return: list of pair of indexes with overlap
     """
@@ -960,7 +993,7 @@ def overlap_bboxes(bbox_list1, bbox_list2):
     return overlap_list
 
 
-def naive_overlap_bboxes(bbox_list1, bbox_list2):
+def naive_get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
     overlap_list = []
     for i, bbox1 in enumerate(bbox_list1):
         x1_b1, y1_b1, x2_b1, y2_b1 = bbox1
