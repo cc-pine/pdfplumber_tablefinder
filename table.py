@@ -652,7 +652,7 @@ class TableFinder2(object):
             self.tables = self.remove_table_without_chars(
                 self.tables, self.page.extract_words()  # chars -> extract_words v6_2
             )  # v4
-            self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v5
+            # self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v5 v8で削除
             self.tables = self.remove_table_with_unusual_shape(self.tables)  # v6
             self.tables = self.remove_table_with_single_col_row(self.tables)  # v6
 

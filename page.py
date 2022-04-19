@@ -275,7 +275,7 @@ class Page(Container):
 
     def dedupe_chars(self, **kwargs):
         """
-        Removes duplicate chars — those sharing the same text, fontname, size,
+        Removes duplicate chars — those sharing the same text, fontname, size,
         and positioning (within `tolerance`) as other characters on the page.
         """
         p = FilteredPage(self, True)
