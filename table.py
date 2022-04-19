@@ -659,7 +659,10 @@ class TableFinder2(object):
             self.tables = self.remove_table_with_unusual_shape(self.tables)  # v6
             self.tables = self.remove_table_with_single_col_row(self.tables)  # v6
             self.tables = self.remove_figures(self.page, self.tables)  # v9
-            self.tables = self.remove_titles(self.page, self.tables) # v9
+            self.tables = self.remove_titles(self.page, self.tables)  # v9
+            self.tables = self.remove_tables_with_many_too_small_cells(
+                self.page, self.tables
+            )  # v9
 
     @staticmethod
     def resolve_table_settings(table_settings={}):
@@ -900,7 +903,26 @@ class TableFinder2(object):
             ret_tables.append(table)
         return ret_tables
 
+    def remove_tables_with_many_too_small_cells(self, page, tables):
+        ret_tables = []
+        for table in tables:
+            cropped_page = page.within_bbox(table.bbox)
+            min_char_w, min_char_h = get_min_char_size(cropped_page)
+            n_cell = len(table.cells)
+            n_small_cell = 0
+            for cell in table.cells:
+                # print(cell)
+                cell_w, cell_h = get_cell_size(cell)
+                if cell_w < min_char_w or cell_h < min_char_h:
+                    n_small_cell += 1
+            if n_small_cell * 2 > n_cell:
+                continue
+            else:
+                ret_tables.append(table)
+        return ret_tables
+
     def remove_figures(self, page, tables, ratio=2):
+        # セルに文字が含まれていないものを削除する
         ret_tables = []
         for table in tables:
             cells_bbox = table.cells
