@@ -634,7 +634,7 @@ class TableFinder2(object):
     https://github.com/tabulapdf/tabula-extractor/issues/16
     """
 
-    def __init__(self, page, settings={}):
+    def __init__(self, page, settings={"snap_tolerance":1e-2, "join_tolerance":3}):
         self.page = page
         self.settings = self.resolve_table_settings(settings)
         self.edges = self.get_edges()
