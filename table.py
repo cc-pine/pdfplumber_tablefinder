@@ -655,10 +655,11 @@ class TableFinder2(object):
             # self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v5 v8で削除
             self.tables = self.remove_misdetected_table_with_two_cells(
                 self.page, self.tables
-            ) # v9
+            )  # v9
             self.tables = self.remove_table_with_unusual_shape(self.tables)  # v6
             self.tables = self.remove_table_with_single_col_row(self.tables)  # v6
-            self.tables = self.remove_figures(self.page, self.tables) # v9
+            self.tables = self.remove_figures(self.page, self.tables)  # v9
+            self.tables = self.remove_titles(self.page, self.tables) # v9
 
     @staticmethod
     def resolve_table_settings(table_settings={}):
@@ -905,6 +906,21 @@ class TableFinder2(object):
             cells_bbox = table.cells
             cells_with_overlap = get_cell_idxs_overlapped_with_chars(table, page)
             if len(cells_with_overlap) < len(cells_bbox) / ratio:
+                continue
+            ret_tables.append(table)
+        return ret_tables
+
+    def remove_titles(self, page, tables):
+        def get_meaningful_chars(chars):
+            MEANINGLESS_CHARS = [" "]
+            return list(filter(lambda x: x["text"] not in MEANINGLESS_CHARS, chars))
+
+        ret_tables = []
+        for table in tables:
+            cells_with_overlap = get_cell_idxs_overlapped_with_chars(table, page)
+            cropped_chars = page.within_bbox(table.bbox).chars
+            meaningful_chars = get_meaningful_chars(cropped_chars)
+            if len(cells_with_overlap) == len(meaningful_chars):
                 continue
             ret_tables.append(table)
         return ret_tables
