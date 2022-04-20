@@ -983,8 +983,8 @@ class TableFinder2(object):
     def remove_tables_with_many_too_small_cells(self, page, tables):
         ret_tables = []
         for table in tables:
-            cropped_page = page.within_bbox(table.bbox)
-            min_char_w, min_char_h = get_min_char_size(cropped_page)
+            page_table_area = crop_page_within_table(table, page)
+            min_char_w, min_char_h = get_min_char_size(page_table_area)
             n_cell = len(table.cells)
             n_small_cell = 0
             for cell in table.cells:
@@ -1017,7 +1017,8 @@ class TableFinder2(object):
         ret_tables = []
         for table in tables:
             cells_with_overlap = get_cell_idxs_overlapped_with_chars(table, page)
-            cropped_chars = page.within_bbox(table.bbox).chars
+            page_table_area = crop_page_within_table(table, page)
+            cropped_chars = page_table_area.chars
             meaningful_chars = get_meaningful_chars(cropped_chars)
             if len(cells_with_overlap) == len(meaningful_chars):
                 continue
@@ -1026,8 +1027,7 @@ class TableFinder2(object):
 
 
 def get_cell_idxs_overlapped_with_chars(table, page):
-    bbox = table.bbox
-    page_table_area = page.within_bbox(bbox)
+    page_table_area = crop_page_within_table(table, page)
     cells_bbox = table.cells
     chars_bbox = utils.get_bboxlist_from_objectlist(page_table_area.chars)
     overlap_list = get_overlapped_bboxes_pairs(cells_bbox, chars_bbox)
@@ -1132,3 +1132,10 @@ def get_cell_nums(table):
     n_col = len(col)
     n_row = len(row)
     return n_col, n_row
+
+
+def crop_page_within_table(table, page):
+    bbox = table.bbox
+    page_x0, page_top, _, _ = page.bbox
+    bbox = (bbox[0] + page_x0, bbox[1] + page_top, bbox[2] + page_x0, bbox[3] + page_top)
+    return page.within_bbox(bbox)
