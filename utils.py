@@ -702,16 +702,27 @@ developing
 """
 
 
-def visualize_rectangular(page, bboxs, stroke_width=1, fontsize=10, resolution=150):
-    DEFAULT_RESOLUTION = 72
+class COLORS(object):
+    RED = (255, 0, 0)
+    GREEN = (0, 255, 0)
+    BLUE = (0, 0, 255)
+    TRANSPARENT = (0, 0, 0, 0)
 
-    class COLORS(object):
-        RED = (255, 0, 0)
-        GREEN = (0, 255, 0)
-        BLUE = (0, 0, 255)
-        TRANSPARENT = (0, 0, 0, 0)
 
-    fill = COLORS.BLUE + (50,)
+DEFAULT_RESOLUTION = 72
+DEFAULT_FILL = COLORS.BLUE + (50,)
+DEFAULT_STROKE = DEFAULT_STROKE = COLORS.RED + (200,)
+
+
+def visualize_rectangular(
+    page,
+    bboxs,
+    fill=DEFAULT_FILL,
+    stroke_width=1,
+    fontsize=15,
+    resolution=150,
+):
+
     im = page.to_image(resolution=resolution).original
     annotated = PIL.Image.new(im.mode, im.size)
     annotated.paste(im)
@@ -737,16 +748,9 @@ def visualize_rectangular(page, bboxs, stroke_width=1, fontsize=10, resolution=1
 
 
 def visualize_table_finder_result(
-    page, stroke_width=1, fontsize=10, resolution=150, option={}
+    page, stroke=DEFAULT_STROKE, stroke_width=1, fontsize=15, resolution=150, option={}
 ):
-    DEFAULT_RESOLUTION = 72
-
-    class COLORS(object):
-        RED = (255, 0, 0)
-        GREEN = (0, 255, 0)
-        BLUE = (0, 0, 255)
-        TRANSPARENT = (0, 0, 0, 0)
-
+    res_ratio = resolution / DEFAULT_RESOLUTION
     fill = COLORS.BLUE + (50,)
     table_finder = page.debug_tablefinder2(option)
     im = page.to_image(resolution=resolution).original
@@ -769,6 +773,15 @@ def visualize_table_finder_result(
         x1 -= half
         bottom -= half
         draw.rectangle((x0, top, x1, bottom), fill, COLORS.TRANSPARENT)
+        if stroke_width > 0:
+            segments = [
+                ((x0, top), (x1, top)),  # top
+                ((x0, bottom), (x1, bottom)),  # bottom
+                ((x0, top), (x0, bottom)),  # left
+                ((x1, top), (x1, bottom)),  # right
+            ]
+            for segment in segments:
+                draw.line(segment, fill=stroke, width=int(2 * res_ratio))
         draw.text((x0, top), str(i), COLORS.BLUE, font=arial_font)
     return annotated
 

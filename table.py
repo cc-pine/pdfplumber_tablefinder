@@ -211,7 +211,7 @@ def edges_to_intersections(edges, x_tolerance=1, y_tolerance=1):
     return intersections
 
 
-def detect_implicit_edges(edges, x_tolerance=1, y_tolerance=1):
+def detect_implicit_edges(edges, implicit_x_tolerance=1, implicit_y_tolerance=1):
     """
     Given a list of edges, return the edges implicitly found
     according to the alignment
@@ -222,6 +222,8 @@ def detect_implicit_edges(edges, x_tolerance=1, y_tolerance=1):
     ]
     implicit_h = dict()
     implicit_v = dict()
+    # TODO: include implicit_x_tolerance, implicit_y_tolerance
+    #       when this function is actually needed
     for v in v_edges:
         x0, top, bottom = v["x0"], v["top"], v["bottom"]
         for tb in (top, bottom):
