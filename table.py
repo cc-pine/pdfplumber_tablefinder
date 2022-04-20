@@ -709,8 +709,9 @@ class TableFinder2(object):
             self.settings["intersection_y_tolerance"],
         )
         self.cells = intersections_to_cells(self.intersections)
-        self.cells_dev = self.remove_too_small_cells(self.cells)  # v2
-        self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells_dev)]
+        self.cells = self.remove_too_small_cells(self.cells)  # v2
+        self.cells = self.remove_too_short_cells(self.cells) # v11
+        self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells)]
         if len(self.tables) > 0:
             self.tables = self.remove_table_without_chars(
                 self.tables, self.page.extract_words()  # chars -> extract_words v6_2
@@ -896,6 +897,7 @@ class TableFinder2(object):
             edges_ret.append(edge)
         return edges_ret
 
+
     def remove_too_small_cells(self, cells):
         min_char_width, min_char_height = get_min_char_size(self.page)
         cells_adequate = []
@@ -904,6 +906,18 @@ class TableFinder2(object):
             if cell_width > min_char_width and cell_height > min_char_height:
                 cells_adequate.append(cell)
         return cells_adequate
+
+    def remove_too_short_cells(self, cells, ratio=5):
+        if len(cells) == 0:
+            return cells
+        cell_height_list = [get_cell_size(cell)[1] for cell in cells]
+        mean_height = sum(cell_height_list) / len(cell_height_list)
+        ret_cells = []
+        for i, cell in enumerate(cells):
+            if cell_height_list[i] * ratio > mean_height:
+                ret_cells.append(cell)
+        return ret_cells
+
 
     def remove_table_without_chars(self, tables, chars):
         ret_tables = []

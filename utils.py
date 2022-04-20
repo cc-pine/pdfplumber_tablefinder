@@ -748,7 +748,12 @@ def visualize_rectangular(
 
 
 def visualize_table_finder_result(
-    page, stroke=DEFAULT_STROKE, stroke_width=1, fontsize=15, resolution=150, option={}
+    page,
+    stroke=DEFAULT_STROKE,
+    stroke_width=1,
+    fontsize=15,
+    resolution=150,
+    option={"snap_tolerance": 1e-2},
 ):
     res_ratio = resolution / DEFAULT_RESOLUTION
     fill = COLORS.BLUE + (50,)
