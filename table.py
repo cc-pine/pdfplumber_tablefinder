@@ -211,6 +211,67 @@ def edges_to_intersections(edges, x_tolerance=1, y_tolerance=1):
     return intersections
 
 
+def detect_implicit_edges(edges, x_tolerance=1, y_tolerance=1):
+    """
+    Given a list of edges, return the edges implicitly found
+    according to the alignment
+    """
+    implicit_edges = []
+    v_edges, h_edges = [
+        list(filter(lambda x: x["orientation"] == o, edges)) for o in ("v", "h")
+    ]
+    implicit_h = dict()
+    implicit_v = dict()
+    for v in v_edges:
+        x0, top, bottom = v["x0"], v["top"], v["bottom"]
+        for tb in (top, bottom):
+            if tb in implicit_h:
+                implicit_h[tb].append(x0)
+            else:
+                implicit_h[tb] = [x0]
+
+    for h in h_edges:
+        x0, top, x1 = h["x0"], h["top"], h["x1"]
+        for x in (x0, x1):
+            if x in implicit_v:
+                implicit_v[x].append(top)
+            else:
+                implicit_v[x] = [top]
+
+    for top in implicit_h:
+        x_cord = implicit_v[top]
+        if len(x_cord) == 1:
+            continue
+        else:
+            implicit_edges.append(
+                {
+                    "x0": min(x_cord),
+                    "x1": max(x_cord),
+                    "top": top,
+                    "bottom": top,
+                    "width": max(x_cord) - min(x_cord),
+                    "orientation": "h",
+                }
+            )
+
+    for x in implicit_v:
+        y_cord = implicit_h[x]
+        if len(y_cord) == 1:
+            continue
+        else:
+            implicit_edges.append(
+                {
+                    "x0": x,
+                    "x1": x,
+                    "top": min(y_cord),
+                    "bottom": max(y_cord),
+                    "width": max(y_cord) - min(y_cord),
+                    "orientation": "v",
+                }
+            )
+
+    return implicit_edges
+
 def intersections_to_cells(intersections):
     """
     Given a list of points (`intersections`), return all rectangular "cells"
