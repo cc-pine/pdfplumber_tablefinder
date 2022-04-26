@@ -717,31 +717,70 @@ class TableFinder2(TableFinder):
 
     def get_filtered_table(self):
         self.edges = self.get_edges()
-        self.edges = filtering.remove_too_long_edges(self.page, self.edges)  # v1
-        self.edges = filtering.remove_terminal_edges(self.page, self.edges)
+        self.edges = filtering.remove_too_long_edges(self.page, self.edges)  # v1.1
+        self.edges = filtering.remove_terminal_edges(self.page, self.edges)  # v1.7
+        self.edges = filtering.remove_colorless_edges(self.edges)  # v2.0
         self.intersections = edges_to_intersections(
             self.edges,
             self.settings["intersection_x_tolerance"],
             self.settings["intersection_y_tolerance"],
         )
         self.cells = intersections_to_cells(self.intersections)
-        self.cells = filtering.remove_too_small_cells(self.page, self.cells)  # v2
-        self.cells = filtering.remove_too_short_cells(self.cells)  # v11
+        self.cells = filtering.remove_too_small_cells(self.page, self.cells)  # v1.2
+        self.cells = filtering.remove_too_short_cells(self.cells)  # v1.11
         self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells)]
         if len(self.tables) > 0:
             self.tables = filtering.remove_table_without_chars(
-                self.tables, self.page.extract_words()  # chars -> extract_words v6_2
-            )  # v4
-            # self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v5 v8で削除
+                self.tables, self.page.extract_words()  # chars -> extract_words v1.6_2
+            )  # v1.4
+            # self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v1.5 v1.8で削除
             self.tables = filtering.remove_misdetected_table_with_two_cells(
                 self.page, self.tables
-            )  # v9
-            self.tables = filtering.remove_table_with_unusual_shape(self.tables)  # v6
-            self.tables = filtering.remove_table_with_single_col_row(self.tables)  # v6
-            self.tables = filtering.remove_figures(self.page, self.tables)  # v9
-            self.tables = filtering.remove_titles(self.page, self.tables)  # v9
+            )  # v1.9
+            self.tables = filtering.remove_table_with_unusual_shape(self.tables)  # v1.6
+            self.tables = filtering.remove_table_with_single_col_row(
+                self.tables
+            )  # v1.6
+            self.tables = filtering.remove_charts(self.page, self.tables)  # v1.9
+            self.tables = filtering.remove_titles(self.page, self.tables)  # v1.9
             self.tables = filtering.remove_tables_with_many_too_small_cells(
                 self.page, self.tables
-            )  # v9
+            )  # v1.9
 
         return self.tables
+
+
+def get_filtered_table_debug(page, edges, settings={"snap_tolerance": 1e-2}):
+    import pdfplumber.table_filtering as filtering
+    from pdfplumber.table import (
+        Table,
+        TableFinder,
+        cells_to_tables,
+        edges_to_intersections,
+        intersections_to_cells,
+    )
+
+    settings = TableFinder.resolve_table_settings(settings)
+    edges = filtering.remove_too_long_edges(page, edges)
+    edges = filtering.remove_terminal_edges(page, edges)
+    edges = filtering.remove_colorless_edges(edges)  # v2.0
+    intersections = edges_to_intersections(
+        edges,
+        settings["intersection_x_tolerance"],
+        settings["intersection_y_tolerance"],
+    )
+    cells = intersections_to_cells(intersections)
+    cells = filtering.remove_too_small_cells(page, cells)
+    cells = filtering.remove_too_short_cells(cells)
+    tables = [Table(page, t) for t in cells_to_tables(cells)]
+    if len(tables) > 0:
+        tables = filtering.remove_table_without_chars(tables, page.extract_words())
+        # self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v5 v8で削除
+        tables = filtering.remove_misdetected_table_with_two_cells(page, tables)
+        tables = filtering.remove_table_with_unusual_shape(tables)
+        tables = filtering.remove_table_with_single_col_row(tables)
+        tables = filtering.remove_figures(page, tables)
+        tables = filtering.remove_titles(page, tables)
+        tables = filtering.remove_tables_with_many_too_small_cells(page, tables)
+
+    return tables

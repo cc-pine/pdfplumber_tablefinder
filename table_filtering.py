@@ -1,3 +1,5 @@
+from operator import itemgetter
+
 from pdfplumber import utils
 
 
@@ -24,6 +26,17 @@ def remove_terminal_edges(page, edges):
         ):
             continue
         edges_ret.append(edge)
+    return edges_ret
+
+
+def remove_colorless_edges(edges):
+    edges_ret = list(
+        filter(
+            lambda x: itemgetter("stroking_color")(x)
+            != itemgetter("non_stroking_color")(x),
+            edges,
+        )
+    )
     return edges_ret
 
 
@@ -134,7 +147,7 @@ def remove_tables_with_many_too_small_cells(page, tables):
     return ret_tables
 
 
-def remove_figures(page, tables, ratio=2):
+def remove_charts(page, tables, ratio=5):
     # セルに文字が含まれていないものを削除する
     ret_tables = []
     for table in tables:
@@ -157,7 +170,7 @@ def remove_titles(page, tables):
         page_table_area = utils.crop_page_within_table(table, page)
         cropped_chars = page_table_area.chars
         meaningful_chars = get_meaningful_chars(cropped_chars)
-        if len(cells_with_overlap) == len(meaningful_chars):
+        if len(cells_with_overlap) >= len(meaningful_chars):
             continue
         ret_tables.append(table)
     return ret_tables
