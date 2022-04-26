@@ -1,7 +1,8 @@
 import itertools
 from operator import itemgetter
 
-from . import table_editor, utils
+from . import table_filtering as filtering
+from . import utils
 
 DEFAULT_SNAP_TOLERANCE = 3
 DEFAULT_JOIN_TOLERANCE = 3
@@ -716,186 +717,31 @@ class TableFinder2(TableFinder):
 
     def get_filtered_table(self):
         self.edges = self.get_edges()
-        self.edges = self.remove_too_long_edges(self.page, self.edges)  # v1
-        self.edges = self.remove_terminal_edges(self.page, self.edges)
+        self.edges = filtering.remove_too_long_edges(self.page, self.edges)  # v1
+        self.edges = filtering.remove_terminal_edges(self.page, self.edges)
         self.intersections = edges_to_intersections(
             self.edges,
             self.settings["intersection_x_tolerance"],
             self.settings["intersection_y_tolerance"],
         )
         self.cells = intersections_to_cells(self.intersections)
-        self.cells = self.remove_too_small_cells(self.cells)  # v2
-        self.cells = self.remove_too_short_cells(self.cells)  # v11
+        self.cells = filtering.remove_too_small_cells(self.page, self.cells)  # v2
+        self.cells = filtering.remove_too_short_cells(self.cells)  # v11
         self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells)]
         if len(self.tables) > 0:
-            self.tables = self.remove_table_without_chars(
+            self.tables = filtering.remove_table_without_chars(
                 self.tables, self.page.extract_words()  # chars -> extract_words v6_2
             )  # v4
             # self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v5 v8で削除
-            self.tables = self.remove_misdetected_table_with_two_cells(
+            self.tables = filtering.remove_misdetected_table_with_two_cells(
                 self.page, self.tables
             )  # v9
-            self.tables = self.remove_table_with_unusual_shape(self.tables)  # v6
-            self.tables = self.remove_table_with_single_col_row(self.tables)  # v6
-            self.tables = self.remove_figures(self.page, self.tables)  # v9
-            self.tables = self.remove_titles(self.page, self.tables)  # v9
-            self.tables = self.remove_tables_with_many_too_small_cells(
+            self.tables = filtering.remove_table_with_unusual_shape(self.tables)  # v6
+            self.tables = filtering.remove_table_with_single_col_row(self.tables)  # v6
+            self.tables = filtering.remove_figures(self.page, self.tables)  # v9
+            self.tables = filtering.remove_titles(self.page, self.tables)  # v9
+            self.tables = filtering.remove_tables_with_many_too_small_cells(
                 self.page, self.tables
             )  # v9
 
         return self.tables
-
-    def remove_too_long_edges(self, page, edges, ratio=0.95):
-        page_width = page.width
-        page_height = page.height
-
-        edges_adequate = []
-        for edge in edges:
-            if (
-                edge["width"] < ratio * page_width
-                and edge["height"] < ratio * page_height
-            ):
-                edges_adequate.append(edge)
-
-        return edges_adequate
-
-    def remove_terminal_edges(self, page, edges):
-        edges_ret = []
-        for edge in edges:
-            if (
-                edge["x0"] <= page.height * 0.03
-                or edge["x1"] >= page.width * 0.97
-                or edge["top"] <= page.height * 0.03
-                or edge["bottom"] >= page.height * 0.97
-            ):
-                continue
-            edges_ret.append(edge)
-        return edges_ret
-
-    def remove_too_small_cells(self, cells):
-        min_char_width, min_char_height = utils.get_min_char_size(self.page)
-        cells_adequate = []
-        for cell in cells:
-            cell_width, cell_height = utils.get_cell_size(cell)
-            if cell_width > min_char_width and cell_height > min_char_height:
-                cells_adequate.append(cell)
-        return cells_adequate
-
-    def remove_too_short_cells(self, cells, ratio=5):
-        if len(cells) == 0:
-            return cells
-        cell_height_list = [utils.get_cell_size(cell)[1] for cell in cells]
-        mean_height = sum(cell_height_list) / len(cell_height_list)
-        ret_cells = []
-        for i, cell in enumerate(cells):
-            if cell_height_list[i] * ratio > mean_height:
-                ret_cells.append(cell)
-        return ret_cells
-
-    def remove_table_without_chars(self, tables, chars):
-        ret_tables = []
-        tables_bbox = [table.bbox for table in tables]
-        chars_bbox = [(c["x0"], c["top"], c["x1"], c["bottom"]) for c in chars]
-        overlaps = utils.get_overlapped_bboxes_pairs(tables_bbox, chars_bbox)
-        idx_tables_with_overlap = set([p[0] for p in overlaps])
-        for i, table in enumerate(tables):
-            if i in idx_tables_with_overlap:
-                ret_tables.append(table)
-
-        return ret_tables
-
-    def remove_misdetected_table_with_two_cells(self, page, tables):
-        ret_tables = []
-        for table in tables:
-            if len(table.cells) == 2:
-                cells_with_overlap = utils.get_cell_idxs_overlapped_with_chars(
-                    table, page
-                )
-                if len(cells_with_overlap) == 1:
-                    continue
-            ret_tables.append(table)
-        return ret_tables
-
-    def remove_table_with_lt_two_cells(self, tables):
-        ret_tables = []
-        for table in tables:
-            if len(table.cells) > 2:
-                ret_tables.append(table)
-        return ret_tables
-
-    def remove_table_with_unusual_shape(self, tables):
-        ret_tables = []
-        for table in tables:
-            cell_widths = set()
-            cell_heights = set()
-            for cell in table.cells:
-                cell_width, cell_height = utils.get_cell_size(cell)
-                cell_widths.add(cell_width)
-                cell_heights.add(cell_height)
-                # 形が全部違う
-            if len(cell_widths) == len(table.cells) and len(cell_heights) == len(
-                table.cells
-            ):
-                continue
-            ret_tables.append(table)
-        return ret_tables
-
-    def remove_table_with_single_col_row(self, tables):
-        ret_tables = []
-        for table in tables:
-            n_col, n_row = utils.get_cell_nums(table)
-            if n_col == 1:
-                cell_width, _ = utils.get_cell_size(table.cells[0])
-                if cell_width < table.page.width * 0.03:
-                    continue
-            if n_row == 1:
-                _, cell_height = utils.get_cell_size(table.cells[0])
-                if cell_height < table.page.height * 0.02:
-                    continue
-            ret_tables.append(table)
-        return ret_tables
-
-    def remove_tables_with_many_too_small_cells(self, page, tables):
-        ret_tables = []
-        for table in tables:
-            page_table_area = utils.crop_page_within_table(table, page)
-            min_char_w, min_char_h = utils.get_min_char_size(page_table_area)
-            n_cell = len(table.cells)
-            n_small_cell = 0
-            for cell in table.cells:
-                # print(cell)
-                cell_w, cell_h = utils.get_cell_size(cell)
-                if cell_w < min_char_w or cell_h < min_char_h:
-                    n_small_cell += 1
-            if n_small_cell * 2 > n_cell:
-                continue
-            else:
-                ret_tables.append(table)
-        return ret_tables
-
-    def remove_figures(self, page, tables, ratio=2):
-        # セルに文字が含まれていないものを削除する
-        ret_tables = []
-        for table in tables:
-            cells_bbox = table.cells
-            cells_with_overlap = utils.get_cell_idxs_overlapped_with_chars(table, page)
-            if len(cells_with_overlap) < len(cells_bbox) / ratio:
-                continue
-            ret_tables.append(table)
-        return ret_tables
-
-    def remove_titles(self, page, tables):
-        def get_meaningful_chars(chars):
-            MEANINGLESS_CHARS = [" "]
-            return list(filter(lambda x: x["text"] not in MEANINGLESS_CHARS, chars))
-
-        ret_tables = []
-        for table in tables:
-            cells_with_overlap = utils.get_cell_idxs_overlapped_with_chars(table, page)
-            page_table_area = utils.crop_page_within_table(table, page)
-            cropped_chars = page_table_area.chars
-            meaningful_chars = get_meaningful_chars(cropped_chars)
-            if len(cells_with_overlap) == len(meaningful_chars):
-                continue
-            ret_tables.append(table)
-        return ret_tables
