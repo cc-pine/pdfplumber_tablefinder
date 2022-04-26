@@ -1,7 +1,7 @@
 import itertools
 from operator import itemgetter
 
-from . import utils
+from . import table_editor, utils
 
 DEFAULT_SNAP_TOLERANCE = 3
 DEFAULT_JOIN_TOLERANCE = 3
@@ -273,6 +273,7 @@ def detect_implicit_edges(edges, implicit_x_tolerance=1, implicit_y_tolerance=1)
             )
 
     return implicit_edges
+
 
 def intersections_to_cells(intersections):
     """
@@ -686,7 +687,7 @@ class TableFinder(object):
         return utils.filter_edges(edges, min_length=settings["edge_min_length"])
 
 
-class TableFinder2(object):
+class TableFinder2(TableFinder):
     """
     Given a PDF page, find plausible table structures.
 
@@ -701,6 +702,20 @@ class TableFinder2(object):
         self.page = page
         self.settings = self.resolve_table_settings(settings)
         self.edges = self.get_edges()
+        self.intersections = edges_to_intersections(
+            self.edges,
+            self.settings["intersection_x_tolerance"],
+            self.settings["intersection_y_tolerance"],
+        )
+        self.cells = intersections_to_cells(self.intersections)
+        self.tables_original = [
+            Table(self.page, t) for t in cells_to_tables(self.cells)
+        ]
+
+        self.get_filtered_table()
+
+    def get_filtered_table(self):
+        self.edges = self.get_edges()
         self.edges = self.remove_too_long_edges(self.page, self.edges)  # v1
         self.edges = self.remove_terminal_edges(self.page, self.edges)
         self.intersections = edges_to_intersections(
@@ -710,7 +725,7 @@ class TableFinder2(object):
         )
         self.cells = intersections_to_cells(self.intersections)
         self.cells = self.remove_too_small_cells(self.cells)  # v2
-        self.cells = self.remove_too_short_cells(self.cells) # v11
+        self.cells = self.remove_too_short_cells(self.cells)  # v11
         self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells)]
         if len(self.tables) > 0:
             self.tables = self.remove_table_without_chars(
@@ -728,147 +743,7 @@ class TableFinder2(object):
                 self.page, self.tables
             )  # v9
 
-    @staticmethod
-    def resolve_table_settings(table_settings={}):
-        """Clean up user-provided table settings.
-
-        Validates that the table settings provided consists of acceptable keys and
-        returns a cleaned up version. The cleaned up version fills out the missing
-        values with the default values in the provided settings.
-
-        TODO: Can be further used to validate that the values are of the correct
-            type. For example, raising a value error when a non-boolean input is
-            provided for the key ``keep_blank_chars``.
-
-        :param table_settings: User-provided table settings.
-        :returns: A cleaned up version of the user-provided table settings.
-        :raises ValueError: When an unrecognised key is provided.
-        """
-        for k in table_settings.keys():
-            if k not in DEFAULT_TABLE_SETTINGS:
-                raise ValueError(f"Unrecognized table setting: '{k}'")
-
-        for setting in NON_NEGATIVE_SETTINGS:
-            if (table_settings.get(setting) or 0) < 0:
-                raise ValueError(f"Table setting '{setting}' cannot be negative")
-
-        resolved_table_settings = dict(DEFAULT_TABLE_SETTINGS)
-        resolved_table_settings.update(table_settings)
-
-        for var, fallback in [
-            ("text_x_tolerance", "text_tolerance"),
-            ("text_y_tolerance", "text_tolerance"),
-            ("snap_x_tolerance", "snap_tolerance"),
-            ("snap_y_tolerance", "snap_tolerance"),
-            ("join_x_tolerance", "join_tolerance"),
-            ("join_y_tolerance", "join_tolerance"),
-            ("intersection_x_tolerance", "intersection_tolerance"),
-            ("intersection_y_tolerance", "intersection_tolerance"),
-        ]:
-            if resolved_table_settings[var] is None:
-                resolved_table_settings.update({var: resolved_table_settings[fallback]})
-
-        return resolved_table_settings
-
-    def get_edges(self):
-        settings = self.settings
-        for name in ["vertical", "horizontal"]:
-            strategy = settings[name + "_strategy"]
-            if strategy not in TABLE_STRATEGIES:
-                raise ValueError(
-                    f'{name}_strategy must be one of {{{",".join(TABLE_STRATEGIES)}}}'
-                )
-            if strategy == "explicit":
-                if len(settings["explicit_" + name + "_lines"]) < 2:
-                    raise ValueError(
-                        f"If {strategy}_strategy == 'explicit', explicit_{name}_lines "
-                        f"must be specified as a list/tuple of two or more "
-                        f"floats/ints."
-                    )
-
-        v_strat = settings["vertical_strategy"]
-        h_strat = settings["horizontal_strategy"]
-
-        if v_strat == "text" or h_strat == "text":
-            words = self.page.extract_words(
-                x_tolerance=settings["text_x_tolerance"],
-                y_tolerance=settings["text_y_tolerance"],
-                keep_blank_chars=settings["keep_blank_chars"],
-            )
-
-        v_explicit = []
-        for desc in settings["explicit_vertical_lines"]:
-            if isinstance(desc, dict):
-                for e in utils.obj_to_edges(desc):
-                    if e["orientation"] == "v":
-                        v_explicit.append(e)
-            else:
-                v_explicit.append(
-                    {
-                        "x0": desc,
-                        "x1": desc,
-                        "top": self.page.bbox[1],
-                        "bottom": self.page.bbox[3],
-                        "height": self.page.bbox[3] - self.page.bbox[1],
-                        "orientation": "v",
-                    }
-                )
-
-        if v_strat == "lines":
-            v_base = utils.filter_edges(self.page.edges, "v")
-        elif v_strat == "lines_strict":
-            v_base = utils.filter_edges(self.page.edges, "v", edge_type="line")
-        elif v_strat == "text":
-            v_base = words_to_edges_v(
-                words, word_threshold=settings["min_words_vertical"]
-            )
-        elif v_strat == "explicit":
-            v_base = []
-
-        v = v_base + v_explicit
-
-        h_explicit = []
-        for desc in settings["explicit_horizontal_lines"]:
-            if isinstance(desc, dict):
-                for e in utils.obj_to_edges(desc):
-                    if e["orientation"] == "h":
-                        h_explicit.append(e)
-            else:
-                h_explicit.append(
-                    {
-                        "x0": self.page.bbox[0],
-                        "x1": self.page.bbox[2],
-                        "width": self.page.bbox[2] - self.page.bbox[0],
-                        "top": desc,
-                        "bottom": desc,
-                        "orientation": "h",
-                    }
-                )
-
-        if h_strat == "lines":
-            h_base = utils.filter_edges(self.page.edges, "h")
-        elif h_strat == "lines_strict":
-            h_base = utils.filter_edges(self.page.edges, "h", edge_type="line")
-        elif h_strat == "text":
-            h_base = words_to_edges_h(
-                words, word_threshold=settings["min_words_horizontal"]
-            )
-        elif h_strat == "explicit":
-            h_base = []
-
-        h = h_base + h_explicit
-
-        edges = list(v) + list(h)
-
-        edges = merge_edges(
-            edges,
-            snap_x_tolerance=settings["snap_x_tolerance"],
-            snap_y_tolerance=settings["snap_y_tolerance"],
-            join_x_tolerance=settings["join_x_tolerance"],
-            join_y_tolerance=settings["join_y_tolerance"],
-        )
-
-        return utils.filter_edges(edges, min_length=settings["edge_min_length"])
+        return self.tables
 
     def remove_too_long_edges(self, page, edges, ratio=0.95):
         page_width = page.width
@@ -897,12 +772,11 @@ class TableFinder2(object):
             edges_ret.append(edge)
         return edges_ret
 
-
     def remove_too_small_cells(self, cells):
-        min_char_width, min_char_height = get_min_char_size(self.page)
+        min_char_width, min_char_height = utils.get_min_char_size(self.page)
         cells_adequate = []
         for cell in cells:
-            cell_width, cell_height = get_cell_size(cell)
+            cell_width, cell_height = utils.get_cell_size(cell)
             if cell_width > min_char_width and cell_height > min_char_height:
                 cells_adequate.append(cell)
         return cells_adequate
@@ -910,7 +784,7 @@ class TableFinder2(object):
     def remove_too_short_cells(self, cells, ratio=5):
         if len(cells) == 0:
             return cells
-        cell_height_list = [get_cell_size(cell)[1] for cell in cells]
+        cell_height_list = [utils.get_cell_size(cell)[1] for cell in cells]
         mean_height = sum(cell_height_list) / len(cell_height_list)
         ret_cells = []
         for i, cell in enumerate(cells):
@@ -918,12 +792,11 @@ class TableFinder2(object):
                 ret_cells.append(cell)
         return ret_cells
 
-
     def remove_table_without_chars(self, tables, chars):
         ret_tables = []
         tables_bbox = [table.bbox for table in tables]
         chars_bbox = [(c["x0"], c["top"], c["x1"], c["bottom"]) for c in chars]
-        overlaps = get_overlapped_bboxes_pairs(tables_bbox, chars_bbox)
+        overlaps = utils.get_overlapped_bboxes_pairs(tables_bbox, chars_bbox)
         idx_tables_with_overlap = set([p[0] for p in overlaps])
         for i, table in enumerate(tables):
             if i in idx_tables_with_overlap:
@@ -935,7 +808,9 @@ class TableFinder2(object):
         ret_tables = []
         for table in tables:
             if len(table.cells) == 2:
-                cells_with_overlap = get_cell_idxs_overlapped_with_chars(table, page)
+                cells_with_overlap = utils.get_cell_idxs_overlapped_with_chars(
+                    table, page
+                )
                 if len(cells_with_overlap) == 1:
                     continue
             ret_tables.append(table)
@@ -954,7 +829,7 @@ class TableFinder2(object):
             cell_widths = set()
             cell_heights = set()
             for cell in table.cells:
-                cell_width, cell_height = get_cell_size(cell)
+                cell_width, cell_height = utils.get_cell_size(cell)
                 cell_widths.add(cell_width)
                 cell_heights.add(cell_height)
                 # 形が全部違う
@@ -968,13 +843,13 @@ class TableFinder2(object):
     def remove_table_with_single_col_row(self, tables):
         ret_tables = []
         for table in tables:
-            n_col, n_row = get_cell_nums(table)
+            n_col, n_row = utils.get_cell_nums(table)
             if n_col == 1:
-                cell_width, _ = get_cell_size(table.cells[0])
+                cell_width, _ = utils.get_cell_size(table.cells[0])
                 if cell_width < table.page.width * 0.03:
                     continue
             if n_row == 1:
-                _, cell_height = get_cell_size(table.cells[0])
+                _, cell_height = utils.get_cell_size(table.cells[0])
                 if cell_height < table.page.height * 0.02:
                     continue
             ret_tables.append(table)
@@ -983,13 +858,13 @@ class TableFinder2(object):
     def remove_tables_with_many_too_small_cells(self, page, tables):
         ret_tables = []
         for table in tables:
-            page_table_area = crop_page_within_table(table, page)
-            min_char_w, min_char_h = get_min_char_size(page_table_area)
+            page_table_area = utils.crop_page_within_table(table, page)
+            min_char_w, min_char_h = utils.get_min_char_size(page_table_area)
             n_cell = len(table.cells)
             n_small_cell = 0
             for cell in table.cells:
                 # print(cell)
-                cell_w, cell_h = get_cell_size(cell)
+                cell_w, cell_h = utils.get_cell_size(cell)
                 if cell_w < min_char_w or cell_h < min_char_h:
                     n_small_cell += 1
             if n_small_cell * 2 > n_cell:
@@ -1003,7 +878,7 @@ class TableFinder2(object):
         ret_tables = []
         for table in tables:
             cells_bbox = table.cells
-            cells_with_overlap = get_cell_idxs_overlapped_with_chars(table, page)
+            cells_with_overlap = utils.get_cell_idxs_overlapped_with_chars(table, page)
             if len(cells_with_overlap) < len(cells_bbox) / ratio:
                 continue
             ret_tables.append(table)
@@ -1016,126 +891,11 @@ class TableFinder2(object):
 
         ret_tables = []
         for table in tables:
-            cells_with_overlap = get_cell_idxs_overlapped_with_chars(table, page)
-            page_table_area = crop_page_within_table(table, page)
+            cells_with_overlap = utils.get_cell_idxs_overlapped_with_chars(table, page)
+            page_table_area = utils.crop_page_within_table(table, page)
             cropped_chars = page_table_area.chars
             meaningful_chars = get_meaningful_chars(cropped_chars)
             if len(cells_with_overlap) == len(meaningful_chars):
                 continue
             ret_tables.append(table)
         return ret_tables
-
-
-def get_cell_idxs_overlapped_with_chars(table, page):
-    page_table_area = crop_page_within_table(table, page)
-    cells_bbox = table.cells
-    chars_bbox = utils.get_bboxlist_from_objectlist(page_table_area.chars)
-    overlap_list = get_overlapped_bboxes_pairs(cells_bbox, chars_bbox)
-    cells_with_overlap = utils.get_overlapping_index(overlap_list)
-    return cells_with_overlap
-
-
-def get_bbox_from_table(table):
-    """
-    returns bounding box of table: (x1, y1, x2, y2)
-    """
-    return table["bbox"]
-
-
-def get_min_char_size(page):
-    chars = page.chars
-    min_width = page.width
-    min_height = page.height
-    for char in chars:
-        min_width = min(min_width, char["width"])
-        min_height = min(min_height, char["height"])
-
-    return min_width, min_height
-
-
-def get_cell_size(cell):
-    # width, height
-    return cell[2] - cell[0], cell[3] - cell[1]
-
-
-def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
-    """
-    return: list of pair of indexes with overlap
-    """
-    # bbox: (x1, y1, x2, y2)
-    bbox_events = []
-
-    for i, bbox in enumerate(bbox_list1):
-        bbox_events.append(("box1", bbox[0], i, 0))
-        bbox_events.append(("box1", bbox[2], i, 1))
-    for i, bbox in enumerate(bbox_list2):
-        bbox_events.append(("box2", bbox[0], i, 0))
-        bbox_events.append(("box2", bbox[2], i, 1))
-    bbox_events.sort(key=lambda x: (x[1], x[3]))
-    bbox1_sweeping = []
-    bbox2_sweeping = []
-    overlap_list = []
-    # print(bbox_events)
-
-    for event in bbox_events:
-        # print("loop:", event)
-        bbox_type = event[0]
-        bbox_idx = event[2]
-        if bbox_type == "box1":
-            _, y1, _, y2 = bbox_list1[bbox_idx]
-            if event[3] == 0:
-                bbox1_sweeping.append((bbox_idx, y1, y2))
-                for bbox2 in bbox2_sweeping:
-                    bbox2_idx, bbox2_y1, bbox2_y2 = bbox2
-                    if bbox2_y1 <= y2 and bbox2_y2 >= y1:
-                        overlap_list.append((bbox_idx, bbox2_idx))
-            elif event[3] == 1:
-                bbox1_sweeping.remove((bbox_idx, y1, y2))
-        else:
-            _, y1, _, y2 = bbox_list2[bbox_idx]
-            if event[3] == 0:
-                bbox2_sweeping.append((bbox_idx, y1, y2))
-                for bbox1 in bbox1_sweeping:
-                    bbox1_idx, bbox1_y1, bbox1_y2 = bbox1
-                    if bbox1_y1 <= y2 and bbox1_y2 >= y1:
-                        overlap_list.append((bbox1_idx, bbox_idx))
-            elif event[3] == 1:
-                bbox2_sweeping.remove((bbox_idx, y1, y2))
-        # print(bbox1_sweeping, bbox2_sweeping)
-
-    assert len(bbox1_sweeping) == 0
-
-    return overlap_list
-
-
-def naive_get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
-    overlap_list = []
-    for i, bbox1 in enumerate(bbox_list1):
-        x1_b1, y1_b1, x2_b1, y2_b1 = bbox1
-        for j, bbox2 in enumerate(bbox_list2):
-            x1_b2, y1_b2, x2_b2, y2_b2 = bbox2
-            if (x1_b1 <= x2_b2 and x2_b1 >= x1_b2) and (
-                y1_b1 <= y2_b2 and y2_b1 >= y1_b2
-            ):
-                overlap_list.append((i, j))
-    return overlap_list
-
-
-def get_cell_nums(table):
-    """
-    return:
-        n_col, n_row: The number of cells on table in a col/row direction
-    """
-    col = set((cell[0], cell[2]) for cell in table.cells)
-    row = set((cell[1], cell[3]) for cell in table.cells)
-
-    n_col = len(col)
-    n_row = len(row)
-    return n_col, n_row
-
-
-def crop_page_within_table(table, page):
-    bbox = table.bbox
-    page_x0, page_top, _, _ = page.bbox
-    bbox = (bbox[0] + page_x0, bbox[1] + page_top, bbox[2] + page_x0, bbox[3] + page_top)
-    return page.within_bbox(bbox)

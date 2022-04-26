@@ -1,9 +1,6 @@
 import itertools
 from operator import itemgetter
 
-import PIL.Image
-import PIL.ImageDraw
-import PIL.ImageFont
 from pdfminer.pdftypes import PDFObjRef
 from pdfminer.psparser import PSLiteral
 from pdfminer.utils import PDFDocEncoding
@@ -697,78 +694,6 @@ def filter_edges(edges, orientation=None, edge_type=None, min_length=1):
     return list(edges)
 
 
-"""
-developing
-"""
-
-
-class COLORS(object):
-    RED = (255, 0, 0)
-    GREEN = (0, 255, 0)
-    BLUE = (0, 0, 255)
-    TRANSPARENT = (0, 0, 0, 0)
-
-
-DEFAULT_RESOLUTION = 72
-DEFAULT_FILL = COLORS.BLUE + (50,)
-DEFAULT_STROKE = DEFAULT_STROKE = COLORS.RED + (200,)
-
-
-def visualize_rectangular(
-    page,
-    bboxs,
-    fill=DEFAULT_FILL,
-    stroke=DEFAULT_STROKE,
-    stroke_width=1,
-    fontsize=15,
-    resolution=150,
-):
-    res_ratio = resolution / DEFAULT_RESOLUTION
-    im = page.to_image(resolution=resolution).original
-    annotated = PIL.Image.new(im.mode, im.size)
-    annotated.paste(im)
-
-    try:
-        arial_font = PIL.ImageFont.truetype("arial.ttf", fontsize)
-    except:
-        arial_font = PIL.ImageFont.truetype("Arial Unicode.ttf", fontsize)
-
-    draw = PIL.ImageDraw.Draw(annotated, "RGBA")
-    for i, bbox in enumerate(bboxs):
-        x0, top, x1, bottom = get_coords_for_plot_rect(bbox, resolution, stroke_width)
-        draw_rect(draw, x0, top, x1, bottom, fill, stroke, stroke_width, res_ratio)
-        draw.text((x0, top), str(i), COLORS.BLUE, font=arial_font)
-    return annotated
-
-
-def visualize_table_finder_result(
-    page,
-    fill=DEFAULT_FILL,
-    stroke=DEFAULT_STROKE,
-    stroke_width=1,
-    fontsize=15,
-    resolution=150,
-    option={"snap_tolerance": 1e-2},
-):
-    res_ratio = resolution / DEFAULT_RESOLUTION
-    table_finder = page.debug_tablefinder2(option)
-    im = page.to_image(resolution=resolution).original
-    annotated = PIL.Image.new(im.mode, im.size)
-    annotated.paste(im)
-    try:
-        arial_font = PIL.ImageFont.truetype("arial.ttf", fontsize)
-    except:
-        arial_font = PIL.ImageFont.truetype("Arial Unicode.ttf", fontsize)
-    draw = PIL.ImageDraw.Draw(annotated, "RGBA")
-    for i, table in enumerate(table_finder.tables):
-        x0, top, x1, bottom = get_coords_for_plot_rect(
-            table.bbox, resolution, stroke_width
-        )
-        draw_rect(draw, x0, top, x1, bottom, fill, stroke, stroke_width, res_ratio)
-        draw.text((x0, top), str(i), COLORS.BLUE, font=arial_font)
-    return annotated
-
-
 def get_bbox_from_object(obj):
     return (obj["x0"], obj["top"], obj["x1"], obj["bottom"])
 
@@ -784,28 +709,113 @@ def get_overlapping_index(overlap_list, get_first=True):
         return sorted(list(set([x[1] for x in overlap_list])))
 
 
-def get_coords_for_plot_rect(bbox, resolution, stroke_width):
-    x0, top, x1, bottom = bbox
-    x0 = x0 * resolution / DEFAULT_RESOLUTION
-    top = top * resolution / DEFAULT_RESOLUTION
-    x1 = x1 * resolution / DEFAULT_RESOLUTION
-    bottom = bottom * resolution / DEFAULT_RESOLUTION
-    half = stroke_width / 2
-    x0 += half
-    top += half
-    x1 -= half
-    bottom -= half
-    return x0, top, x1, bottom
+def get_cell_size(cell):
+    # width, height
+    return cell[2] - cell[0], cell[3] - cell[1]
 
 
-def draw_rect(draw, x0, top, x1, bottom, fill, stroke, stroke_width, res_ratio):
-    draw.rectangle((x0, top, x1, bottom), fill, COLORS.TRANSPARENT)
-    if stroke_width > 0:
-        segments = [
-            ((x0, top), (x1, top)),  # top
-            ((x0, bottom), (x1, bottom)),  # bottom
-            ((x0, top), (x0, bottom)),  # left
-            ((x1, top), (x1, bottom)),  # right
-        ]
-        for segment in segments:
-            draw.line(segment, fill=stroke, width=int(2 * res_ratio))
+def get_cell_idxs_overlapped_with_chars(table, page):
+    page_table_area = crop_page_within_table(table, page)
+    cells_bbox = table.cells
+    chars_bbox = get_bboxlist_from_objectlist(page_table_area.chars)
+    overlap_list = get_overlapped_bboxes_pairs(cells_bbox, chars_bbox)
+    cells_with_overlap = get_overlapping_index(overlap_list)
+    return cells_with_overlap
+
+
+def get_min_char_size(page):
+    chars = page.chars
+    min_width = page.width
+    min_height = page.height
+    for char in chars:
+        min_width = min(min_width, char["width"])
+        min_height = min(min_height, char["height"])
+    return min_width, min_height
+
+
+def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
+    """
+    return: list of pair of indexes with overlap
+    """
+    # bbox: (x1, y1, x2, y2)
+    bbox_events = []
+
+    for i, bbox in enumerate(bbox_list1):
+        bbox_events.append(("box1", bbox[0], i, 0))
+        bbox_events.append(("box1", bbox[2], i, 1))
+    for i, bbox in enumerate(bbox_list2):
+        bbox_events.append(("box2", bbox[0], i, 0))
+        bbox_events.append(("box2", bbox[2], i, 1))
+    bbox_events.sort(key=lambda x: (x[1], x[3]))
+    bbox1_sweeping = []
+    bbox2_sweeping = []
+    overlap_list = []
+    # print(bbox_events)
+
+    for event in bbox_events:
+        # print("loop:", event)
+        bbox_type = event[0]
+        bbox_idx = event[2]
+        if bbox_type == "box1":
+            _, y1, _, y2 = bbox_list1[bbox_idx]
+            if event[3] == 0:
+                bbox1_sweeping.append((bbox_idx, y1, y2))
+                for bbox2 in bbox2_sweeping:
+                    bbox2_idx, bbox2_y1, bbox2_y2 = bbox2
+                    if bbox2_y1 <= y2 and bbox2_y2 >= y1:
+                        overlap_list.append((bbox_idx, bbox2_idx))
+            elif event[3] == 1:
+                bbox1_sweeping.remove((bbox_idx, y1, y2))
+        else:
+            _, y1, _, y2 = bbox_list2[bbox_idx]
+            if event[3] == 0:
+                bbox2_sweeping.append((bbox_idx, y1, y2))
+                for bbox1 in bbox1_sweeping:
+                    bbox1_idx, bbox1_y1, bbox1_y2 = bbox1
+                    if bbox1_y1 <= y2 and bbox1_y2 >= y1:
+                        overlap_list.append((bbox1_idx, bbox_idx))
+            elif event[3] == 1:
+                bbox2_sweeping.remove((bbox_idx, y1, y2))
+        # print(bbox1_sweeping, bbox2_sweeping)
+
+    assert len(bbox1_sweeping) == 0
+
+    return overlap_list
+
+
+def naive_get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
+    overlap_list = []
+    for i, bbox1 in enumerate(bbox_list1):
+        x1_b1, y1_b1, x2_b1, y2_b1 = bbox1
+        for j, bbox2 in enumerate(bbox_list2):
+            x1_b2, y1_b2, x2_b2, y2_b2 = bbox2
+            if (x1_b1 <= x2_b2 and x2_b1 >= x1_b2) and (
+                y1_b1 <= y2_b2 and y2_b1 >= y1_b2
+            ):
+                overlap_list.append((i, j))
+    return overlap_list
+
+
+def get_cell_nums(table):
+    """
+    return:
+        n_col, n_row: The number of cells on table in a col/row direction
+    """
+    col = set((cell[0], cell[2]) for cell in table.cells)
+    row = set((cell[1], cell[3]) for cell in table.cells)
+
+    n_col = len(col)
+    n_row = len(row)
+    return n_col, n_row
+
+
+def crop_page_within_table(table, page):
+    bbox = table.bbox
+    page_x0, page_top, _, _ = page.bbox
+    bbox = (
+        bbox[0] + page_x0,
+        bbox[1] + page_top,
+        bbox[2] + page_x0,
+        bbox[3] + page_top,
+    )
+    return page.within_bbox(bbox)
