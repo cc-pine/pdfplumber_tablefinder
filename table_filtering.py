@@ -50,7 +50,7 @@ def remove_too_small_cells(page, cells):
     return cells_adequate
 
 
-def remove_too_short_cells(cells, ratio=5):
+def remove_too_short_cells(cells, ratio=10):
     if len(cells) == 0:
         return cells
     cell_height_list = [utils.get_cell_size(cell)[1] for cell in cells]
