@@ -7,6 +7,7 @@ from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfinterp import PDFResourceManager
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
+from pdfminer.psparser import PSException
 
 from .container import Container
 from .page import Page
@@ -50,13 +51,20 @@ class PDF(Container):
 
     @classmethod
     def open(cls, path_or_fp, **kwargs):
-        if isinstance(path_or_fp, (str, pathlib.Path)):
-            fp = open(path_or_fp, "rb")
+        is_path = isinstance(path_or_fp, (str, pathlib.Path))
+        fp = open(path_or_fp, "rb") if is_path else path_or_fp
+
+        try:
             inst = cls(fp, **kwargs)
+        except PSException:
+            if is_path:
+                fp.close()
+            raise
+
+        if is_path:
             inst.close_file = fp.close
-            return inst
-        else:
-            return cls(path_or_fp, **kwargs)
+
+        return inst
 
     @property
     def pages(self):
