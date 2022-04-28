@@ -174,3 +174,18 @@ def remove_titles(page, tables):
             continue
         ret_tables.append(table)
     return ret_tables
+
+
+def remove_bar_graph(page, tables):
+    ret_tables = []
+    for table in tables:
+        n_col, n_row = utils.get_cell_nums(table)
+        if (n_col == 1 or n_row == 1) and n_col + n_row > 4:
+            n_cells = n_col + n_row - 1
+            cropped_page = page.crop(table.bbox)
+            color_list = [x["non_stroking_color"] for x in cropped_page.rects]
+            unique_color_list = utils.get_unique_list(color_list)
+            if len(unique_color_list) >= n_cells + 1:
+                continue
+        ret_tables.append(table)
+    return ret_tables

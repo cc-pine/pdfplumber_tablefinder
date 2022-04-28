@@ -819,3 +819,8 @@ def crop_page_within_table(table, page):
         bbox[3] + page_top,
     )
     return page.within_bbox(bbox)
+
+
+def get_unique_list(seq):
+    seen = []
+    return [x for x in seq if x not in seen and not seen.append(x)]

@@ -746,6 +746,7 @@ class TableFinder2(TableFinder):
             self.tables = filtering.remove_tables_with_many_too_small_cells(
                 self.page, self.tables
             )  # v1.9
+            self.tables = filtering.remove_bar_graph(self.page, self.tables) # v2.0.1
 
         return self.tables
 
@@ -779,8 +780,9 @@ def get_filtered_table_debug(page, edges, settings={"snap_tolerance": 1e-2}):
         tables = filtering.remove_misdetected_table_with_two_cells(page, tables)
         tables = filtering.remove_table_with_unusual_shape(tables)
         tables = filtering.remove_table_with_single_col_row(tables)
-        tables = filtering.remove_figures(page, tables)
+        tables = filtering.remove_charts(page, tables)
         tables = filtering.remove_titles(page, tables)
         tables = filtering.remove_tables_with_many_too_small_cells(page, tables)
+        self.tables = filtering.remove_bar_graph(page, tables)
 
     return tables
