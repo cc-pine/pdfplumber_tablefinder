@@ -1,6 +1,6 @@
 from operator import itemgetter
 
-from pdfplumber import utils
+from pdfplumber import table_filtering_utils as utils
 
 
 def remove_too_long_edges(page, edges, ratio=0.95):
@@ -187,5 +187,14 @@ def remove_bar_graph(page, tables):
             unique_color_list = utils.get_unique_list(color_list)
             if len(unique_color_list) >= n_cells + 1:
                 continue
+        ret_tables.append(table)
+    return ret_tables
+
+def remove_complicated_rects(tables):
+    ret_tables = []
+    for table in tables:
+        overlap_bbox = utils.get_overlapped_bboxes_pairs(table.cells, table.cells)
+        if len(overlap_bbox) > len(table.cells):
+            continue
         ret_tables.append(table)
     return ret_tables

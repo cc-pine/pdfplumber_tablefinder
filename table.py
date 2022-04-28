@@ -747,6 +747,7 @@ class TableFinder2(TableFinder):
                 self.page, self.tables
             )  # v1.9
             self.tables = filtering.remove_bar_graph(self.page, self.tables) # v2.0.1
+            self.tables = filtering.remove_complicated_rects(self.tables) # v2.0.2
 
         return self.tables
 
@@ -783,6 +784,7 @@ def get_filtered_table_debug(page, edges, settings={"snap_tolerance": 1e-2}):
         tables = filtering.remove_charts(page, tables)
         tables = filtering.remove_titles(page, tables)
         tables = filtering.remove_tables_with_many_too_small_cells(page, tables)
-        self.tables = filtering.remove_bar_graph(page, tables)
+        tables = filtering.remove_bar_graph(page, tables)
+        tables = filtering.remove_complicated_rects(tables)
 
     return tables

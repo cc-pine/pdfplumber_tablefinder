@@ -1,7 +1,7 @@
 import time
 
 import numpy as np
-from pdfplumber.table import naive_get_overlapped_bboxes_pairs, get_overlapped_bboxes_pairs
+from pdfplumber.table_filtering_utils import naive_get_overlapped_bboxes_pairs, get_overlapped_bboxes_pairs
 
 
 def test1():
