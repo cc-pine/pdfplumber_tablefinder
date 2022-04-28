@@ -1,27 +1,96 @@
 import numpy as np
 
+import pdfplumber
 
-def get_bbox_from_object(obj):
+
+def get_bbox_from_object(obj: dict) -> "tuple[float, float, float, float]":
+    """
+    pdfのオブジェクトからbboxを取り出す。
+    Parameters
+    ----------
+    obj: dict
+        pdf中に存在する要素を表現するdict
+
+    Returns
+    -------
+    bbox: tuple[float, float, float, float]
+
+    Notes
+    -----
+    画像上での表示に用いることを前提としているため、ｙ軸については
+    topとbottomの値を持ってきている。
+    top / bottomは、オブジェクトのてっぺんのページの一番上からの距離を示しており、
+    y0, y1はオブジェクトの底のページの一番下からの距離を示す。
+    """
     return (obj["x0"], obj["top"], obj["x1"], obj["bottom"])
 
 
-def get_bboxlist_from_objectlist(obj_list):
+def get_bboxlist_from_objectlist(
+    obj_list: "list[dict]",
+) -> "list[tuple[float, float, float, float]]":
+    """
+    pdfのオブジェクトのリストからbboxのリストを返す。
+    Parameters
+    ----------
+    obj_list: list[dict]
+        page.chars, page.linesなどで得られるオブジェクトのリスト
+
+    Returns
+    -------
+    bbox_list: list[tuple[float, float, float, float]]
+    """
     return [get_bbox_from_object(obj) for obj in obj_list]
 
 
-def get_overlapping_index(overlap_list, get_first=True):
+def get_overlapping_index(
+    overlap_list: "list[tuple[int, int]]", get_first: bool = True
+) -> "list[int]":
+    """
+    Get the width and height of the cell.
+
+    Parameters
+    ----------
+    overlap_list: list[tuple[int, int]]
+        2つのbboxのリストが与えられたとき、1番目のリストに存在する要素と
+        2番目のリストに存在する要素について、重なっている要素のindexの組を保持したリスト。
+    get_first: bool
+        Trueの時、重なりを示すタプルの最初の要素について、
+        indexのlistを返す。
+        Falseの時はタプルの二番目の要素について返す。
+    Returns
+    -------
+    index_list: list[int]
+        どちらかのbboxのリストについて、もう一方のbboxリストとの重なりをもつ要素のindexのリスト
+    """
     if get_first:
         return sorted(list(set([x[0] for x in overlap_list])))
     else:
         return sorted(list(set([x[1] for x in overlap_list])))
 
 
-def get_cell_size(cell):
-    # width, height
+def get_cell_size(cell: "tuple[float, float, float, float]") -> "tuple[float, float]":
+    """
+    Get the width and height of the cell.
+
+    Parameters
+    ----------
+    cell: tuple of list[float, float, float, float]
+
+    Returns
+    -------
+    width: float
+    height: float
+    """
     return cell[2] - cell[0], cell[3] - cell[1]
 
 
-def get_cell_idxs_overlapped_with_chars(table, page):
+def get_cell_idxs_overlapped_with_chars(
+    table:" pdfplumber.table.Table", page: "pdfplumber.page.Page"
+):
+    """
+    テーブルに含まれるセルについて、ページ上の文字と重なっているものの
+    pdfplumber.table.Table.cellsにおけるindexのリストを返す。
+    """
     page_table_area = crop_page_within_table(table, page)
     cells_bbox = table.cells
     chars_bbox = get_bboxlist_from_objectlist(page_table_area.chars)
@@ -30,11 +99,18 @@ def get_cell_idxs_overlapped_with_chars(table, page):
     return cells_with_overlap
 
 
-def get_min_char_size(page):
+def get_min_char_size(page: "pdfplumber.page.Page") -> "tuple[float, float]":
     """
-    return: min_width, min_height
-        min_width: minimum character width of given page
-        min_height: minimum character height of given page
+    Get the minimum width / height of character in page.
+
+    Parameters
+    ----------
+    page: pdfplumber.page.Page or pdfplumber.page.CroppedPage
+
+    Returns
+    -------
+    min_width: float
+    min_height: float
     """
     chars = page.chars
     min_width = page.width
@@ -45,11 +121,20 @@ def get_min_char_size(page):
     return min_width, min_height
 
 
-def get_mode_char_size(page):
+def get_mode_char_size(
+    page: "pdfplumber.page.Page" or "pdfplumber.page.CroppedPage",
+) -> "tuple[float, float]":
     """
-    return: mode_width, mode_height
-        mode_width: mode character width of given page
-        mode_height: mode character height of given page
+    Get the width / height of character that appears most in page.
+
+    Parameters
+    ----------
+    page: pdfplumber.page.Page or pdfplumber.page.CroppedPage
+
+    Returns
+    -------
+    mode_width: float
+    mode_height: float
     """
     chars = page.chars
     width_list = [c["width"] for c in chars]
@@ -61,9 +146,31 @@ def get_mode_char_size(page):
     return mode_width, mode_height
 
 
-def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
+def get_overlapped_bboxes_pairs(
+    bbox_list1: "list[tuple[float, float, float, float]]",
+    bbox_list2: "list[tuple[float, float, float, float]]",
+) -> "list[tuple[int, int]]":
     """
-    return: list of pair of indexes with overlap
+    Get two bbox list and return pairs of indices of bbox that are overlapped between two list.
+
+    Parameters
+    ----------
+    bbox_list1 : list[tuple[float, float, float, float]]
+        List of bbox. Bbox is a tuple of four values
+        which represents (x1, top, x2, bottom).
+    bbox_list2 : list[list(int or float)]
+
+    Returns
+    -------
+    overlap_list: list[tuple[int, int]]
+        List of pair of indices with overlap between two list.
+
+    Notes
+    -----
+    bounding boxの数が多いときには単純な実装より高速。
+    bounding boxの数が少ないときにはやや遅い。
+    辺を共有しているだけの場合はoverlapと判定しない。
+    共有部分が面積を持つときのみにoverlapと判定。
     """
     # bbox: (x1, y1, x2, y2)
     bbox_events = []
@@ -87,23 +194,39 @@ def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
         if bbox_type == "box1":
             bbox1_x1, bbox1_y1, bbox1_x2, bbox1_y2 = bbox_list1[bbox_idx]
             if event[3] == 0:
-                bbox1_sweeping.append((bbox_idx, bbox1_x1, bbox1_y1, bbox1_x2, bbox1_y2))
+                bbox1_sweeping.append(
+                    (bbox_idx, bbox1_x1, bbox1_y1, bbox1_x2, bbox1_y2)
+                )
                 for bbox2 in bbox2_sweeping:
-                    bbox2_idx, bbox2_x1, bbox2_y1, bbox2_x2,  bbox2_y2 = bbox2
-                    if bbox2_y1 < bbox1_y2 and bbox2_y2 > bbox1_y1 and (bbox2_x1 - bbox1_x2) * (bbox2_x2 - bbox1_x1) != 0:
+                    bbox2_idx, bbox2_x1, bbox2_y1, bbox2_x2, bbox2_y2 = bbox2
+                    if (
+                        bbox2_y1 < bbox1_y2
+                        and bbox2_y2 > bbox1_y1
+                        and (bbox2_x1 - bbox1_x2) * (bbox2_x2 - bbox1_x1) != 0
+                    ):
                         overlap_list.append((bbox_idx, bbox2_idx))
             elif event[3] == 1:
-                bbox1_sweeping.remove((bbox_idx, bbox1_x1, bbox1_y1, bbox1_x2, bbox1_y2))
+                bbox1_sweeping.remove(
+                    (bbox_idx, bbox1_x1, bbox1_y1, bbox1_x2, bbox1_y2)
+                )
         else:
             bbox2_x1, bbox2_y1, bbox2_x2, bbox2_y2 = bbox_list2[bbox_idx]
             if event[3] == 0:
-                bbox2_sweeping.append((bbox_idx, bbox2_x1, bbox2_y1, bbox2_x2, bbox2_y2))
+                bbox2_sweeping.append(
+                    (bbox_idx, bbox2_x1, bbox2_y1, bbox2_x2, bbox2_y2)
+                )
                 for bbox1 in bbox1_sweeping:
                     bbox1_idx, bbox1_x1, bbox1_y1, bbox1_x2, bbox1_y2 = bbox1
-                    if bbox1_y1 < bbox2_y2 and bbox1_y2 > bbox2_y1 and (bbox2_x1 - bbox1_x2) * (bbox2_x2 - bbox1_x1) != 0:
+                    if (
+                        bbox1_y1 < bbox2_y2
+                        and bbox1_y2 > bbox2_y1
+                        and (bbox2_x1 - bbox1_x2) * (bbox2_x2 - bbox1_x1) != 0
+                    ):
                         overlap_list.append((bbox1_idx, bbox_idx))
             elif event[3] == 1:
-                bbox2_sweeping.remove((bbox_idx, bbox2_x1, bbox2_y1, bbox2_x2, bbox2_y2))
+                bbox2_sweeping.remove(
+                    (bbox_idx, bbox2_x1, bbox2_y1, bbox2_x2, bbox2_y2)
+                )
         # print(bbox1_sweeping, bbox2_sweeping)
 
     assert len(bbox1_sweeping) == 0
@@ -111,23 +234,58 @@ def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
     return overlap_list
 
 
-def naive_get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
+def naive_get_overlapped_bboxes_pairs(
+    bbox_list1: "list[tuple[float, float, float, float]]",
+    bbox_list2: "list[tuple[float, float, float, float]]",
+) -> "list[tuple[int, int]]":
+    """
+    Get two bbox list and return pairs of indices of bbox that are overlapped between two list.
+
+    Parameters
+    ----------
+    bbox_list1 : list[tuple[float, float, float, float]]
+        List of bbox. Bbox is a tuple of four values
+        which represents (x1, top, x2, bottom).
+    bbox_list2 : list[list(int or float)]
+
+    Returns
+    -------
+    overlap_list: list[tuple[int, int]]
+        List of pair of indices with overlap between two list.
+
+    Notes
+    -----
+    辺を共有しているだけの場合はoverlapと判定しない。
+    共有部分が面積を持つときのみにoverlapと判定。
+    """
     overlap_list = []
     for i, bbox1 in enumerate(bbox_list1):
         x1_b1, y1_b1, x2_b1, y2_b1 = bbox1
         for j, bbox2 in enumerate(bbox_list2):
             x1_b2, y1_b2, x2_b2, y2_b2 = bbox2
-            if (x1_b1 < x2_b2 and x2_b1 > x1_b2) and (
-                y1_b1 < y2_b2 and y2_b1 > y1_b2
-            ):
+            if (x1_b1 < x2_b2 and x2_b1 > x1_b2) and (y1_b1 < y2_b2 and y2_b1 > y1_b2):
                 overlap_list.append((i, j))
     return overlap_list
 
 
-def get_cell_nums(table):
+def get_cell_nums(table: "pdfplumber.table.Table") -> "tuple[int, int]":
     """
-    return:
-        n_col, n_row: The number of cells on table in a col/row direction
+    Returns how many columns or rows exist in a table.
+
+    Parameters
+    ----------
+    table: pdfplumber.table.Table
+
+    Returns
+    -------
+    n_col: int
+    n_row: int
+
+    Notes
+    -----
+    行の数、列の数は必ずしも表の見た目とは一致しない。
+    実際には、行の数は、セルの矩形を表現するy座標の組の種類を、
+    列の数はx座標の組の種類となっている。
     """
     col = set((cell[0], cell[2]) for cell in table.cells)
     row = set((cell[1], cell[3]) for cell in table.cells)
@@ -137,7 +295,25 @@ def get_cell_nums(table):
     return n_col, n_row
 
 
-def crop_page_within_table(table, page):
+def crop_page_within_table(
+    table: "pdfplumber.table.Table", page: "pdfplumber.page.Page"
+) -> "pdfplumber.page.CroppedPage":
+    """
+    Returns cropped page in the size of table.
+
+    Parameters
+    ----------
+    table: pdfplumber.table.Table
+    page: pdfplumber.page.Page
+
+    Returns
+    -------
+    cropped_page: pdfplumber.page.CroppedPage
+
+    Notes
+    -----
+    pageを表すbboxがずれていることがあるため、補正を行っている。
+    """
     bbox = table.bbox
     page_x0, page_top, _, _ = page.bbox
     bbox = (
@@ -149,6 +325,21 @@ def crop_page_within_table(table, page):
     return page.within_bbox(bbox)
 
 
-def get_unique_list(seq):
+def get_unique_list(seq: list) -> list:
+    """
+    Returns the list of unique elements of the original list.
+
+    Parameters
+    ----------
+    seq: list
+
+    Returns
+    -------
+    unique_list: list
+
+    Notes
+    -----
+    リストの要素がunhashableの時、setを使う方法が使えないため追加。
+    """
     seen = []
     return [x for x in seq if x not in seen and not seen.append(x)]

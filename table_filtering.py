@@ -4,6 +4,11 @@ from pdfplumber import table_filtering_utils as utils
 
 
 def remove_too_long_edges(page, edges, ratio=0.95):
+    """
+    Notes
+    -----
+    ページの幅の95%以上の長さの水平線、高さの95%以上の長さの垂直線を削除する
+    """
     page_width = page.width
     page_height = page.height
 
@@ -16,6 +21,11 @@ def remove_too_long_edges(page, edges, ratio=0.95):
 
 
 def remove_terminal_edges(page, edges):
+    """
+    Notes
+    -----
+    ページの終端部に届いているエッジを削除する
+    """
     edges_ret = []
     for edge in edges:
         if (
@@ -30,6 +40,9 @@ def remove_terminal_edges(page, edges):
 
 
 def remove_colorless_edges(edges):
+    """
+    stroking_colorとnon_stroking_colorが同一なエッジを削除する
+    """
     edges_ret = list(
         filter(
             lambda x: itemgetter("stroking_color")(x)
@@ -41,6 +54,9 @@ def remove_colorless_edges(edges):
 
 
 def remove_too_small_cells(page, cells):
+    """
+    ページの最小の文字よりも高さや幅が小さいセルを削除する
+    """
     min_char_width, min_char_height = utils.get_min_char_size(page)
     cells_adequate = []
     for cell in cells:
@@ -51,6 +67,10 @@ def remove_too_small_cells(page, cells):
 
 
 def remove_too_short_cells(cells, ratio=10):
+    """
+    セルの高さについて、ページ上の他のセルと比較して極端に低いセルを削除する。
+    デフォルトでは平均の1/10より低いセルを削除。
+    """
     if len(cells) == 0:
         return cells
     cell_height_list = [utils.get_cell_size(cell)[1] for cell in cells]
@@ -63,6 +83,9 @@ def remove_too_short_cells(cells, ratio=10):
 
 
 def remove_table_without_chars(tables, chars):
+    """
+    tableと判定された領域のうち、文字を一切含まないものをtableから除外する
+    """
     ret_tables = []
     tables_bbox = [table.bbox for table in tables]
     chars_bbox = [(c["x0"], c["top"], c["x1"], c["bottom"]) for c in chars]
@@ -76,6 +99,9 @@ def remove_table_without_chars(tables, chars):
 
 
 def remove_misdetected_table_with_two_cells(page, tables):
+    """
+    文字入りの矩形領域+文字のない近接する矩形によって表と判定されてしまうことを防ぐ
+    """
     ret_tables = []
     for table in tables:
         if len(table.cells) == 2:
@@ -87,6 +113,9 @@ def remove_misdetected_table_with_two_cells(page, tables):
 
 
 def remove_table_with_lt_two_cells(tables):
+    """
+    セルが1つのものは除外する
+    """
     ret_tables = []
     for table in tables:
         if len(table.cells) > 2:
@@ -95,6 +124,9 @@ def remove_table_with_lt_two_cells(tables):
 
 
 def remove_table_with_unusual_shape(tables):
+    """
+    構成するセルの高さor幅がすべて異なるtableを除外する
+    """
     ret_tables = []
     for table in tables:
         cell_widths = set()
@@ -113,6 +145,10 @@ def remove_table_with_unusual_shape(tables):
 
 
 def remove_table_with_single_col_row(tables):
+    """
+    一行/一列しか存在しない表のうち、一行/一列の文字しか含まないと推定されるものを除外する。
+    タイトルの一文字一文字が矩形で囲まれ、表と五検知されるケースへの対処。
+    """
     ret_tables = []
     for table in tables:
         n_col, n_row = utils.get_cell_nums(table)
@@ -129,6 +165,9 @@ def remove_table_with_single_col_row(tables):
 
 
 def remove_tables_with_many_too_small_cells(page, tables):
+    """
+    table領域の最もよく現れる文字サイズより小さいセルを多数含むtableを除外する
+    """
     ret_tables = []
     for table in tables:
         page_table_area = utils.crop_page_within_table(table, page)
@@ -148,7 +187,9 @@ def remove_tables_with_many_too_small_cells(page, tables):
 
 
 def remove_charts(page, tables, ratio=5):
-    # セルに文字が含まれていないものを削除する
+    """
+    文字を含まないセルを多数含むものを除外する
+    """
     ret_tables = []
     for table in tables:
         cells_bbox = table.cells
@@ -160,6 +201,10 @@ def remove_charts(page, tables, ratio=5):
 
 
 def remove_titles(page, tables):
+    """
+    すべてのセルに1文字ずつしか含まれていないケースを除外する。
+    """
+
     def get_meaningful_chars(chars):
         MEANINGLESS_CHARS = [" "]
         return list(filter(lambda x: x["text"] not in MEANINGLESS_CHARS, chars))
@@ -177,6 +222,9 @@ def remove_titles(page, tables):
 
 
 def remove_bar_graph(page, tables):
+    """
+    ある領域が含む矩形について、セルの数と比較して矩形の色が多い場合はtableから除外する
+    """
     ret_tables = []
     for table in tables:
         n_col, n_row = utils.get_cell_nums(table)
@@ -190,7 +238,11 @@ def remove_bar_graph(page, tables):
         ret_tables.append(table)
     return ret_tables
 
+
 def remove_complicated_rects(tables):
+    """
+    セルが整列していない表は除外する
+    """
     ret_tables = []
     for table in tables:
         overlap_bbox = utils.get_overlapped_bboxes_pairs(table.cells, table.cells)
