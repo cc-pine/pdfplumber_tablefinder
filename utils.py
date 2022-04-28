@@ -768,7 +768,7 @@ def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
     for i, bbox in enumerate(bbox_list2):
         bbox_events.append(("box2", bbox[0], i, 0))
         bbox_events.append(("box2", bbox[2], i, 1))
-    bbox_events.sort(key=lambda x: (x[1], x[3]))
+    bbox_events.sort(key=lambda x: (x[1], -1 * x[3]))
     bbox1_sweeping = []
     bbox2_sweeping = []
     overlap_list = []
@@ -784,7 +784,7 @@ def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
                 bbox1_sweeping.append((bbox_idx, y1, y2))
                 for bbox2 in bbox2_sweeping:
                     bbox2_idx, bbox2_y1, bbox2_y2 = bbox2
-                    if bbox2_y1 <= y2 and bbox2_y2 >= y1:
+                    if bbox2_y1 < y2 and bbox2_y2 > y1:
                         overlap_list.append((bbox_idx, bbox2_idx))
             elif event[3] == 1:
                 bbox1_sweeping.remove((bbox_idx, y1, y2))
@@ -794,7 +794,7 @@ def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
                 bbox2_sweeping.append((bbox_idx, y1, y2))
                 for bbox1 in bbox1_sweeping:
                     bbox1_idx, bbox1_y1, bbox1_y2 = bbox1
-                    if bbox1_y1 <= y2 and bbox1_y2 >= y1:
+                    if bbox1_y1 < y2 and bbox1_y2 > y1:
                         overlap_list.append((bbox1_idx, bbox_idx))
             elif event[3] == 1:
                 bbox2_sweeping.remove((bbox_idx, y1, y2))
@@ -811,8 +811,8 @@ def naive_get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
         x1_b1, y1_b1, x2_b1, y2_b1 = bbox1
         for j, bbox2 in enumerate(bbox_list2):
             x1_b2, y1_b2, x2_b2, y2_b2 = bbox2
-            if (x1_b1 <= x2_b2 and x2_b1 >= x1_b2) and (
-                y1_b1 <= y2_b2 and y2_b1 >= y1_b2
+            if (x1_b1 < x2_b2 and x2_b1 > x1_b2) and (
+                y1_b1 < y2_b2 and y2_b1 > y1_b2
             ):
                 overlap_list.append((i, j))
     return overlap_list
