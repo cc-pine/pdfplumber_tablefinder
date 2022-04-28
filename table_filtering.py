@@ -132,15 +132,15 @@ def remove_tables_with_many_too_small_cells(page, tables):
     ret_tables = []
     for table in tables:
         page_table_area = utils.crop_page_within_table(table, page)
-        min_char_w, min_char_h = utils.get_min_char_size(page_table_area)
+        mode_char_w, mode_char_h = utils.get_mode_char_size(page_table_area)
         n_cell = len(table.cells)
         n_small_cell = 0
         for cell in table.cells:
             # print(cell)
             cell_w, cell_h = utils.get_cell_size(cell)
-            if cell_w < min_char_w or cell_h < min_char_h:
+            if cell_w < mode_char_w or cell_h < mode_char_h:
                 n_small_cell += 1
-        if n_small_cell * 2 > n_cell:
+        if n_small_cell * 2 >= n_cell - n_small_cell:
             continue
         else:
             ret_tables.append(table)

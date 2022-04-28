@@ -1,6 +1,7 @@
 import itertools
 from operator import itemgetter
 
+import numpy as np
 from pdfminer.pdftypes import PDFObjRef
 from pdfminer.psparser import PSLiteral
 from pdfminer.utils import PDFDocEncoding
@@ -724,6 +725,11 @@ def get_cell_idxs_overlapped_with_chars(table, page):
 
 
 def get_min_char_size(page):
+    """
+    return: min_width, min_height
+        min_width: minimum character width of given page
+        min_height: minimum character height of given page
+    """
     chars = page.chars
     min_width = page.width
     min_height = page.height
@@ -731,6 +737,22 @@ def get_min_char_size(page):
         min_width = min(min_width, char["width"])
         min_height = min(min_height, char["height"])
     return min_width, min_height
+
+
+def get_mode_char_size(page):
+    """
+    return: mode_width, mode_height
+        mode_width: mode character width of given page
+        mode_height: mode character height of given page
+    """
+    chars = page.chars
+    width_list = [c["width"] for c in chars]
+    height_list = [c["height"] for c in chars]
+    width_unique, width_count = np.unique(width_list, return_counts=True)
+    height_unique, height_count = np.unique(height_list, return_counts=True)
+    mode_width = width_unique[width_count == np.amax(width_count)].min()
+    mode_height = height_unique[height_count == np.amax(height_count)].min()
+    return mode_width, mode_height
 
 
 def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
