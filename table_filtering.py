@@ -179,7 +179,7 @@ def remove_tables_with_many_too_small_cells(page, tables):
             cell_w, cell_h = utils.get_cell_size(cell)
             if cell_w < mode_char_w or cell_h < mode_char_h:
                 n_small_cell += 1
-        if n_small_cell * 2 >= n_cell - n_small_cell:
+        if n_small_cell * 2 > n_cell - n_small_cell:
             continue
         else:
             ret_tables.append(table)
@@ -245,8 +245,13 @@ def remove_complicated_rects(tables):
     """
     ret_tables = []
     for table in tables:
+        n_col, n_row = utils.get_cell_nums(table)
         overlap_bbox = utils.get_overlapped_bboxes_pairs(table.cells, table.cells)
         if len(overlap_bbox) > len(table.cells):
             continue
+        if n_col * n_row > 2 * len(table.cells):
+            continue
         ret_tables.append(table)
     return ret_tables
+
+
