@@ -716,7 +716,7 @@ def get_cell_size(cell):
 
 
 def get_cell_idxs_overlapped_with_chars(table, page):
-    page_table_area = crop_page_within_table(table, page)
+    page_table_area = crop_page_within_table(page, table)
     cells_bbox = table.cells
     chars_bbox = get_bboxlist_from_objectlist(page_table_area.chars)
     overlap_list = get_overlapped_bboxes_pairs(cells_bbox, chars_bbox)
@@ -811,9 +811,7 @@ def naive_get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
         x1_b1, y1_b1, x2_b1, y2_b1 = bbox1
         for j, bbox2 in enumerate(bbox_list2):
             x1_b2, y1_b2, x2_b2, y2_b2 = bbox2
-            if (x1_b1 < x2_b2 and x2_b1 > x1_b2) and (
-                y1_b1 < y2_b2 and y2_b1 > y1_b2
-            ):
+            if (x1_b1 < x2_b2 and x2_b1 > x1_b2) and (y1_b1 < y2_b2 and y2_b1 > y1_b2):
                 overlap_list.append((i, j))
     return overlap_list
 
@@ -831,7 +829,7 @@ def get_cell_nums(table):
     return n_col, n_row
 
 
-def crop_page_within_table(table, page):
+def crop_page_within_table(page, table):
     bbox = table.bbox
     page_x0, page_top, _, _ = page.bbox
     bbox = (
