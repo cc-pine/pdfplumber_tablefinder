@@ -730,17 +730,17 @@ class TableFinder2(TableFinder):
         self.cells = filtering.remove_too_short_cells(self.cells)  # v1.11
         self.tables = [Table(self.page, t) for t in cells_to_tables(self.cells)]
         if len(self.tables) > 0:
-            self.tables = filtering.remove_table_without_chars(
+            self.tables = filtering.remove_tables_without_chars(
                 self.tables, self.page.chars  # chars -> extract_words v1.6_2
             )  # v1.4
             # v2.0.3で不要と判断 -> 確認しようを外すためにはこれが必要
             # 英語の124ページがこれのせいで外れる、なぜ？
             # self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v1.5 v1.8で削除
-            self.tables = filtering.remove_misdetected_table_with_two_cells(
+            self.tables = filtering.remove_misdetected_tables_with_two_cells(
                 self.page, self.tables
             )  # v1.9
             self.tables = filtering.remove_table_with_unusual_shape(self.tables)  # v1.6
-            self.tables = filtering.remove_table_with_single_col_row(
+            self.tables = filtering.remove_tables_with_single_line(
                 self.tables
             )  # v1.6
             self.tables = filtering.remove_charts(self.page, self.tables)  # v1.9
@@ -779,14 +779,14 @@ def get_filtered_table_debug(page, edges, settings={"snap_tolerance": 1e-2}):
     cells = filtering.remove_too_short_cells(cells)
     tables = [Table(page, t) for t in cells_to_tables(cells)]
     if len(tables) > 0:
-        tables = filtering.remove_table_without_chars(tables, page.extract_words())
+        tables = filtering.remove_tables_without_chars(tables, page.extract_words())
         # self.tables = self.remove_table_with_lt_two_cells(self.tables)  # v5 v8で削除
-        tables = filtering.remove_misdetected_table_with_two_cells(page, tables)
+        tables = filtering.remove_misdetected_tables_with_two_cells(page, tables)
         tables = filtering.remove_table_with_unusual_shape(tables)
-        tables = filtering.remove_table_with_single_col_row(tables)
+        tables = filtering.remove_tables_with_single_line(tables)
         tables = filtering.remove_charts(page, tables)
         tables = filtering.remove_titles(page, tables)
-        tables = filtering.remove_tables_with_many_too_small_cells(page, tables)
+        tables = filtering.remove_tables_with_many_small_cells(page, tables)
         tables = filtering.remove_bar_graph(page, tables)
         tables = filtering.remove_complicated_rects(tables)
 

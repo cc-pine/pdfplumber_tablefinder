@@ -85,13 +85,13 @@ def get_cell_size(cell: "tuple[float, float, float, float]") -> "tuple[float, fl
 
 
 def get_cell_idxs_overlapped_with_chars(
-    table:" pdfplumber.table.Table", page: "pdfplumber.page.Page"
+    table: "pdfplumber.table.Table", page: "pdfplumber.page.Page"
 ):
     """
     テーブルに含まれるセルについて、ページ上の文字と重なっているものの
     pdfplumber.table.Table.cellsにおけるindexのリストを返す。
     """
-    page_table_area = crop_page_within_table(table, page)
+    page_table_area = crop_page_within_table(page, table)
     cells_bbox = table.cells
     chars_bbox = get_bboxlist_from_objectlist(page_table_area.chars)
     overlap_list = get_overlapped_bboxes_pairs(cells_bbox, chars_bbox)
@@ -296,7 +296,7 @@ def get_cell_nums(table: "pdfplumber.table.Table") -> "tuple[int, int]":
 
 
 def crop_page_within_table(
-    table: "pdfplumber.table.Table", page: "pdfplumber.page.Page"
+    page: "pdfplumber.page.Page", table: "pdfplumber.table.Table"
 ) -> "pdfplumber.page.CroppedPage":
     """
     Returns cropped page in the size of table.
