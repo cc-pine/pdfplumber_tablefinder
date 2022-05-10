@@ -119,17 +119,17 @@ def remove_tables_without_chars(tables, chars):
     tableと判定された領域のうち、文字を一切含まないものをtableから除外する
     """
     tables_adequate = list(
-        filter(lambda table: is_table_overlapped_with_char(table, chars), tables)
+        filter(lambda table: not is_table_not_overlapped_with_char(table, chars), tables)
     )
 
     return tables_adequate
 
 
-def is_table_overlapped_with_char(table, chars):
+def is_table_not_overlapped_with_char(table, chars):
     table_bbox = [table.bbox]
     chars_bbox = utils.get_bboxlist_from_objectlist(chars)
     overlap_pair_with_chars = utils.get_overlapped_bboxes_pairs(table_bbox, chars_bbox)
-    return len(overlap_pair_with_chars) > 0
+    return len(overlap_pair_with_chars) <= 0
 
 
 def remove_misdetected_tables_with_two_cells(page, tables):
