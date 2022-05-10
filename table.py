@@ -1,3 +1,4 @@
+from collections import defaultdict
 import itertools
 from operator import itemgetter
 
@@ -24,6 +25,35 @@ def snap_edges(
     snapped_v = utils.snap_objects(by_orientation["v"], "x0", x_tolerance)
     snapped_h = utils.snap_objects(by_orientation["h"], "top", y_tolerance)
     return snapped_v + snapped_h
+
+def snap_edges_considering_color(
+    edges, x_tolerance=DEFAULT_SNAP_TOLERANCE, y_tolerance=DEFAULT_SNAP_TOLERANCE
+):
+    """
+    Given a list of edges, snap any within `tolerance` pixels of one another
+    to their positional average.
+    Additionally, color of edges are considered to snap edges.
+    """
+    by_orientation = {"v": defaultdict(lambda: []), "h": defaultdict(lambda: [])}
+    for e in edges:
+        edge_color = e["stroking_color"]
+        if edge_color is None:
+            by_orientation[e["orientation"]][None].append(e)
+        else: by_orientation[e["orientation"]][tuple(edge_color)].append(e)
+
+    snapped_edges = []
+    for orientation in by_orientation:
+        if orientation=="v":
+            for color_edge in by_orientation[orientation].values():
+                if color_edge is not None:
+                    color_snapped_edges = utils.snap_objects(color_edge, "x0", x_tolerance)
+                    snapped_edges += color_snapped_edges
+        elif orientation=="h":
+            for color_edge in by_orientation[orientation].values():
+                if color_edge is not None:
+                    color_snapped_edges = utils.snap_objects(color_edge, "top", y_tolerance)
+                    snapped_edges += color_snapped_edges
+    return snapped_edges
 
 
 def join_edge_group(edges, orientation, tolerance=DEFAULT_JOIN_TOLERANCE):
@@ -69,6 +99,44 @@ def merge_edges(
 
     if snap_x_tolerance > 0 or snap_y_tolerance > 0:
         edges = snap_edges(edges, snap_x_tolerance, snap_y_tolerance)
+
+    _sorted = sorted(edges, key=get_group)
+    edge_groups = itertools.groupby(_sorted, key=get_group)
+    edge_gen = (
+        join_edge_group(
+            items, k[0], (join_x_tolerance if k[0] == "h" else join_y_tolerance)
+        )
+        for k, items in edge_groups
+    )
+    edges = list(itertools.chain(*edge_gen))
+    return edges
+
+def merge_edges_aemc(
+    edges, snap_x_tolerance, snap_y_tolerance, join_x_tolerance, join_y_tolerance
+):
+    """
+    Using the `snap_edges` and `join_edge_group` methods above,
+    merge a list of edges into a more "seamless" list.
+    """
+
+    def get_group(edge):
+        if edge["orientation"] == "h":
+            return ("h", edge["top"])
+        else:
+            return ("v", edge["x0"])
+
+    _sorted = sorted(edges, key=get_group)
+    edge_groups = itertools.groupby(_sorted, key=get_group)
+    edge_gen = (
+        join_edge_group(
+            items, k[0], (join_x_tolerance if k[0] == "h" else join_y_tolerance)
+        )
+        for k, items in edge_groups
+    )
+    edges = list(itertools.chain(*edge_gen))
+
+    if snap_x_tolerance > 0 or snap_y_tolerance > 0:
+        edges = snap_edges_considering_color(edges, snap_x_tolerance, snap_y_tolerance)
 
     _sorted = sorted(edges, key=get_group)
     edge_groups = itertools.groupby(_sorted, key=get_group)
@@ -699,7 +767,7 @@ class TableFinder2(TableFinder):
     https://github.com/tabulapdf/tabula-extractor/issues/16
     """
 
-    def __init__(self, page, settings={"snap_tolerance": 1e-2}):
+    def __init__(self, page, settings={}):
         self.page = page
         self.settings = self.resolve_table_settings(settings)
         self.edges = self.get_edges()
@@ -745,14 +813,60 @@ class TableFinder2(TableFinder):
             )  # v1.6
             self.tables = filtering.remove_charts(self.page, self.tables)  # v1.9
             self.tables = filtering.remove_titles(self.page, self.tables)  # v1.9
-            # self.tables = filtering.remove_tables_with_many_too_small_cells(
-            #     self.page, self.tables
-            # )  # v1.9
+            self.tables = filtering.remove_tables_with_many_small_cells(
+                self.page, self.tables
+            )  # v1.9
             # あいまいなので除きたい
+            # 5/9 これが結構重要なメソッドだったので保留
             self.tables = filtering.remove_bar_graph(self.page, self.tables) # v2.0.1
             self.tables = filtering.remove_complicated_rects(self.tables) # v2.0.2
 
         return self.tables
+
+    def get_edges(self):
+        settings = self.settings
+        for name in ["vertical", "horizontal"]:
+            strategy = settings[name + "_strategy"]
+            if strategy not in TABLE_STRATEGIES:
+                raise ValueError(
+                    f'{name}_strategy must be one of {{{",".join(TABLE_STRATEGIES)}}}'
+                )
+            if strategy == "explicit":
+                if len(settings["explicit_" + name + "_lines"]) < 2:
+                    raise ValueError(
+                        f"If {strategy}_strategy == 'explicit', explicit_{name}_lines "
+                        f"must be specified as a list/tuple of two or more "
+                        f"floats/ints."
+                    )
+
+        v_strat = settings["vertical_strategy"]
+        h_strat = settings["horizontal_strategy"]
+
+        if v_strat == "lines":
+            v_base = utils.filter_edges(self.page.edges, "v")
+        elif v_strat == "lines_strict":
+            v_base = utils.filter_edges(self.page.edges, "v", edge_type="line")
+
+        v = v_base
+
+        if h_strat == "lines":
+            h_base = utils.filter_edges(self.page.edges, "h")
+        elif h_strat == "lines_strict":
+            h_base = utils.filter_edges(self.page.edges, "h", edge_type="line")
+
+        h = h_base
+
+        edges = list(v) + list(h)
+
+        edges = merge_edges_aemc(
+            edges,
+            snap_x_tolerance=settings["snap_x_tolerance"],
+            snap_y_tolerance=settings["snap_y_tolerance"],
+            join_x_tolerance=settings["join_x_tolerance"],
+            join_y_tolerance=settings["join_y_tolerance"],
+        )
+
+        return utils.filter_edges(edges, min_length=settings["edge_min_length"])
 
 
 def get_filtered_table_debug(page, edges, settings={"snap_tolerance": 1e-2}):
@@ -791,3 +905,5 @@ def get_filtered_table_debug(page, edges, settings={"snap_tolerance": 1e-2}):
         tables = filtering.remove_complicated_rects(tables)
 
     return tables
+
+
