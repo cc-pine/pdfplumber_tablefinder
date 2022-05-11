@@ -308,3 +308,55 @@ def is_complicated_rects(table):
     if n_col * n_row > 2 * len(table.cells):
         return True
     return False
+
+
+def remove_improper_tables_with_two_rects(page, tables, tolerance=1):
+    """
+    2つのセルを含むと判定されているが、矩形・微小空白・矩形となっているヤツは除く
+    """
+    tables_adequate = list(
+        filter(lambda table: not is_improper_two_rects(page, table, tolerance), tables)
+    )
+    return tables_adequate
+
+def is_improper_two_rects(page, table, tolerance=1):
+    if len(table.cells) != 2:
+        return False
+    else:
+        n_row, n_col = utils.get_cell_nums(table)
+        rects = page.crop(table.bbox).rects
+        if n_row == 2:
+            min_bottom = min(map(itemgetter("bottom"), rects))
+            max_top =max(map(itemgetter("top"), rects))
+            if max_top - min_bottom > tolerance:
+                return True
+        elif n_col == 2:
+            min_x1 = min(map(itemgetter("x1"), rects))
+            max_x0 =max(map(itemgetter("x0"), rects))
+            if max_x0 - min_x1 > tolerance:
+                return True
+        return False
+
+def is_improper_three_rects(table, ratio=10):
+    # not in use
+    if len(table.cells) != 3:
+        return False
+    else:
+        n_row, n_col = utils.get_cell_nums(table)
+        if n_row == 3:
+            cells = sorted(table.cells, key=lambda cell: cell[0])
+            cell_heights = [utils.get_cell_size(cell)[0] for cell in cells]
+            if (
+                cell_heights[1] * ratio < cell_heights[0]
+                and cell_heights[1] * ratio < cell_heights[2]
+            ):
+                return True
+        elif n_col == 3:
+            cells = sorted(table.cells, key=lambda cell: cell[1])
+            cell_width = [utils.get_cell_size(cell)[1] for cell in cells]
+            if (
+                cell_width[1] * ratio < cell_width[0]
+                and cell_width[1] * ratio < cell_width[2]
+            ):
+                return True
+        return False

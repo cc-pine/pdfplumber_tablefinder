@@ -149,7 +149,6 @@ def merge_edges_aemc(
         # edges = snap_edges_considering_color(edges, snap_x_tolerance, snap_y_tolerance)
         edges = snap_edges(edges, snap_x_tolerance, snap_y_tolerance)
 
-
     _sorted = sorted(edges, key=get_group)
     edge_groups = itertools.groupby(_sorted, key=get_group)
     edge_gen = (
@@ -830,6 +829,9 @@ class TableFinder2(TableFinder):
             # 5/9 これが結構重要なメソッドだったので保留
             self.tables = filtering.remove_bar_graph(self.page, self.tables)  # v2.0.1
             self.tables = filtering.remove_complicated_rects(self.tables)  # v2.0.2
+            self.tables = filtering.remove_improper_tables_with_two_rects(
+                self.page, self.tables
+            )  # v2.2.1
 
         return self.tables
 
@@ -892,3 +894,31 @@ def get_filtered_table_debug(page, edges, settings={}):
         tables = filtering.remove_complicated_rects(tables)
 
     return tables
+
+
+def check_filters(page, table):
+    result = list()
+    chars = page.chars
+    if filtering.is_table_not_overlapped_with_char(table, chars):
+        result.append(filtering.is_table_not_overlapped_with_char.__name__)
+    if filtering.is_misdetected_table_with_two_cells(page, table):
+        result.append(filtering.is_misdetected_table_with_two_cells.__name__)
+    if filtering.is_table_with_one_cell(table):
+        result.append(filtering.is_table_with_one_cell.__name__)
+    if filtering.is_table_with_unusual_shape(table):
+        result.append(filtering.is_table_with_unusual_shape.__name__)
+    if filtering.is_table_with_single_line(table):
+        result.append(filtering.is_table_with_single_line.__name__)
+    if filtering.is_table_with_many_small_cells(page, table):
+        result.append(filtering.is_table_with_many_small_cells.__name__)
+    if filtering.seems_to_be_chart(page, table):
+        result.append(filtering.seems_to_be_chart.__name__)
+    if filtering.seems_to_be_title(page, table):
+        result.append(filtering.seems_to_be_title.__name__)
+    if filtering.is_bar_graph(page, table):
+        result.append(filtering.is_bar_graph.__name__)
+    if filtering.is_complicated_rects(table):
+        result.append(filtering.is_complicated_rects.__name__)
+    if filtering.is_improper_two_rects(page, table):
+        result.append(filtering.is_improper_three_rects.__name__)
+    return result
