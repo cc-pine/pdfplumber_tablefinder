@@ -710,9 +710,24 @@ def get_overlapping_index(overlap_list, get_first=True):
         return sorted(list(set([x[1] for x in overlap_list])))
 
 
-def get_cell_size(cell):
-    # width, height
-    return cell[2] - cell[0], cell[3] - cell[1]
+def get_cell_size(cell: "tuple[float, float, float, float]") -> "tuple[float, float]":
+    """
+    Get the height and width of the cell.
+
+    Parameters
+    ----------
+    cell: tuple of list[float, float, float, float]
+
+    Returns
+    -------
+    height: float
+    width: float
+
+    Notes
+    -----
+    cellは(x0, top, x1, bottom)のタプル
+    """
+    return cell[3] - cell[1],cell[2] - cell[0]
 
 
 def get_cell_idxs_overlapped_with_chars(table, page):
@@ -724,35 +739,52 @@ def get_cell_idxs_overlapped_with_chars(table, page):
     return cells_with_overlap
 
 
-def get_min_char_size(page):
+def get_min_char_size(page: "pdfplumber.page.Page") -> "tuple[float, float]":
     """
-    return: min_width, min_height
-        min_width: minimum character width of given page
-        min_height: minimum character height of given page
+    Get the minimum height / width of character in page.
+
+    Parameters
+    ----------
+    page: pdfplumber.page.Page or pdfplumber.page.CroppedPage
+
+    Returns
+    -------
+    min_height: float
+    min_width: float
     """
     chars = page.chars
-    min_width = page.width
     min_height = page.height
+    min_width = page.width
     for char in chars:
-        min_width = min(min_width, char["width"])
         min_height = min(min_height, char["height"])
-    return min_width, min_height
+        min_width = min(min_width, char["width"])
+    return min_height, min_width
 
 
-def get_mode_char_size(page):
+
+def get_mode_char_size(
+    page: "pdfplumber.page.Page" or "pdfplumber.page.CroppedPage",
+) -> "tuple[float, float]":
     """
-    return: mode_width, mode_height
-        mode_width: mode character width of given page
-        mode_height: mode character height of given page
+    Get the height / width of character that appears most in page.
+
+    Parameters
+    ----------
+    page: pdfplumber.page.Page or pdfplumber.page.CroppedPage
+
+    Returns
+    -------
+    mode_height: float
+    mode_width: float
     """
     chars = page.chars
-    width_list = [c["width"] for c in chars]
     height_list = [c["height"] for c in chars]
-    width_unique, width_count = np.unique(width_list, return_counts=True)
+    width_list = [c["width"] for c in chars]
     height_unique, height_count = np.unique(height_list, return_counts=True)
-    mode_width = width_unique[width_count == np.amax(width_count)].min()
+    width_unique, width_count = np.unique(width_list, return_counts=True)
     mode_height = height_unique[height_count == np.amax(height_count)].min()
-    return mode_width, mode_height
+    mode_width = width_unique[width_count == np.amax(width_count)].min()
+    return mode_height, mode_width
 
 
 def get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
@@ -819,14 +851,14 @@ def naive_get_overlapped_bboxes_pairs(bbox_list1, bbox_list2):
 def get_cell_nums(table):
     """
     return:
-        n_col, n_row: The number of cells on table in a col/row direction
+        n_row, n_col: The number of cells on table in a row/col direction
     """
-    col = set((cell[0], cell[2]) for cell in table.cells)
     row = set((cell[1], cell[3]) for cell in table.cells)
+    col = set((cell[0], cell[2]) for cell in table.cells)
 
-    n_col = len(col)
     n_row = len(row)
-    return n_col, n_row
+    n_col = len(col)
+    return n_row, n_col
 
 
 def crop_page_within_table(page, table):

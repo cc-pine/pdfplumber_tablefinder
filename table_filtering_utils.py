@@ -70,7 +70,7 @@ def get_overlapping_index(
 
 def get_cell_size(cell: "tuple[float, float, float, float]") -> "tuple[float, float]":
     """
-    Get the width and height of the cell.
+    Get the height and width of the cell.
 
     Parameters
     ----------
@@ -78,10 +78,14 @@ def get_cell_size(cell: "tuple[float, float, float, float]") -> "tuple[float, fl
 
     Returns
     -------
-    width: float
     height: float
+    width: float
+
+    Notes
+    -----
+    cellは(x0, top, x1, bottom)のタプル
     """
-    return cell[2] - cell[0], cell[3] - cell[1]
+    return cell[3] - cell[1],cell[2] - cell[0]
 
 
 def get_cell_idxs_overlapped_with_chars(
@@ -101,7 +105,7 @@ def get_cell_idxs_overlapped_with_chars(
 
 def get_min_char_size(page: "pdfplumber.page.Page") -> "tuple[float, float]":
     """
-    Get the minimum width / height of character in page.
+    Get the minimum height / width of character in page.
 
     Parameters
     ----------
@@ -109,23 +113,23 @@ def get_min_char_size(page: "pdfplumber.page.Page") -> "tuple[float, float]":
 
     Returns
     -------
-    min_width: float
     min_height: float
+    min_width: float
     """
     chars = page.chars
-    min_width = page.width
     min_height = page.height
+    min_width = page.width
     for char in chars:
-        min_width = min(min_width, char["width"])
         min_height = min(min_height, char["height"])
-    return min_width, min_height
+        min_width = min(min_width, char["width"])
+    return min_height, min_width
 
 
 def get_mode_char_size(
     page: "pdfplumber.page.Page" or "pdfplumber.page.CroppedPage",
 ) -> "tuple[float, float]":
     """
-    Get the width / height of character that appears most in page.
+    Get the height / width of character that appears most in page.
 
     Parameters
     ----------
@@ -133,17 +137,17 @@ def get_mode_char_size(
 
     Returns
     -------
-    mode_width: float
     mode_height: float
+    mode_width: float
     """
     chars = page.chars
-    width_list = [c["width"] for c in chars]
     height_list = [c["height"] for c in chars]
-    width_unique, width_count = np.unique(width_list, return_counts=True)
+    width_list = [c["width"] for c in chars]
     height_unique, height_count = np.unique(height_list, return_counts=True)
-    mode_width = width_unique[width_count == np.amax(width_count)].min()
+    width_unique, width_count = np.unique(width_list, return_counts=True)
     mode_height = height_unique[height_count == np.amax(height_count)].min()
-    return mode_width, mode_height
+    mode_width = width_unique[width_count == np.amax(width_count)].min()
+    return mode_height, mode_width
 
 
 def get_overlapped_bboxes_pairs(
@@ -270,7 +274,7 @@ def naive_get_overlapped_bboxes_pairs(
 
 def get_cell_nums(table: "pdfplumber.table.Table") -> "tuple[int, int]":
     """
-    Returns how many columns or rows exist in a table.
+    Returns how many rows or cols exist in a table.
 
     Parameters
     ----------
@@ -278,8 +282,8 @@ def get_cell_nums(table: "pdfplumber.table.Table") -> "tuple[int, int]":
 
     Returns
     -------
-    n_col: int
     n_row: int
+    n_col: int
 
     Notes
     -----
@@ -287,12 +291,12 @@ def get_cell_nums(table: "pdfplumber.table.Table") -> "tuple[int, int]":
     実際には、行の数は、セルの矩形を表現するy座標の組の種類を、
     列の数はx座標の組の種類となっている。
     """
-    col = set((cell[0], cell[2]) for cell in table.cells)
     row = set((cell[1], cell[3]) for cell in table.cells)
+    col = set((cell[0], cell[2]) for cell in table.cells)
 
-    n_col = len(col)
     n_row = len(row)
-    return n_col, n_row
+    n_col = len(col)
+    return n_row, n_col
 
 
 def crop_page_within_table(

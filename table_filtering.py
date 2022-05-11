@@ -17,9 +17,9 @@ def remove_too_long_edges(page, edges, ratio=0.95):
 
 
 def is_too_long_edge(page, edge, ratio):
-    page_width = page.width
     page_height = page.height
-    return edge["width"] > ratio * page_width or edge["height"] > ratio * page_height
+    page_width = page.width
+    return edge["height"] > ratio * page_height or edge["width"] > ratio * page_width
 
 
 def remove_terminal_edges(page, edges):
@@ -34,7 +34,7 @@ def remove_terminal_edges(page, edges):
 
 def is_terminal_edge(page, edge):
     is_terminal = (
-        edge["x0"] <= page.height * 0.03
+        edge["x0"] <= page.width * 0.03
         or edge["x1"] >= page.width * 0.97
         or edge["top"] <= page.height * 0.03
         or edge["bottom"] >= page.height * 0.97
@@ -71,8 +71,8 @@ def remove_too_small_cells(page, cells):
 
 
 def is_too_small_cell_for_chars(page, cell):
-    min_char_width, min_char_height = utils.get_min_char_size(page)
-    cell_width, cell_height = utils.get_cell_size(cell)
+    min_char_height, min_char_width = utils.get_min_char_size(page)
+    cell_height, cell_width = utils.get_cell_size(cell)
     return cell_width < min_char_width and cell_height < min_char_height
 
 
@@ -85,7 +85,7 @@ def remove_too_short_cells(cells, ratio=10):
     """
     if len(cells) == 0:
         return cells
-    cell_height_list = [utils.get_cell_size(cell)[1] for cell in cells]
+    cell_height_list = [utils.get_cell_size(cell)[0] for cell in cells]
     mean_height = sum(cell_height_list) / len(cell_height_list)
     cells_adequate = list(
         filter(lambda cell: not is_too_short_cell(cell, mean_height, ratio), cells)
@@ -94,7 +94,7 @@ def remove_too_short_cells(cells, ratio=10):
 
 
 def is_too_short_cell(cell, mean_height, ratio=10):
-    cell_height = utils.get_cell_size(cell)[1]
+    cell_height = utils.get_cell_size(cell)[0]
     return cell_height * ratio < mean_height
 
 
@@ -119,9 +119,10 @@ def remove_tables_without_chars(tables, chars):
     tableと判定された領域のうち、文字を一切含まないものをtableから除外する
     """
     tables_adequate = list(
-        filter(lambda table: not is_table_not_overlapped_with_char(table, chars), tables)
+        filter(
+            lambda table: not is_table_not_overlapped_with_char(table, chars), tables
+        )
     )
-
     return tables_adequate
 
 
@@ -175,9 +176,9 @@ def remove_table_with_unusual_shape(tables):
 
 def is_table_with_unusual_shape(table):
     cell_sizes = [utils.get_cell_size(cell) for cell in table.cells]
-    cell_widths = set([size[0] for size in cell_sizes])
-    cell_heights = set([size[1] for size in cell_sizes])
-    return len(cell_widths) == len(table.cells) and len(cell_heights) == len(
+    cell_heights = set([size[0] for size in cell_sizes])
+    cell_widths = set([size[1] for size in cell_sizes])
+    return len(cell_heights) == len(table.cells) and len(cell_widths) == len(
         table.cells
     )
 
@@ -194,14 +195,14 @@ def remove_tables_with_single_line(tables):
 
 
 def is_table_with_single_line(table):
-    n_col, n_row = utils.get_cell_nums(table)
-    if n_col == 1:
-        cell_width, _ = utils.get_cell_size(table.cells[0])
-        if cell_width < table.page.width * 0.03:
-            return True
+    n_row, n_col = utils.get_cell_nums(table)
     if n_row == 1:
-        _, cell_height = utils.get_cell_size(table.cells[0])
+        cell_height, _ = utils.get_cell_size(table.cells[0])
         if cell_height < table.page.height * 0.02:
+            return True
+    if n_col == 1:
+        _, cell_width = utils.get_cell_size(table.cells[0])
+        if cell_width < table.page.width * 0.03:
             return True
     return False
 
@@ -218,12 +219,12 @@ def remove_tables_with_many_small_cells(page, tables):
 
 def is_table_with_many_small_cells(page, table):
     page_table_area = utils.crop_page_within_table(page, table)
-    mode_char_w, mode_char_h = utils.get_mode_char_size(page_table_area)
+    mode_char_h, mode_char_w = utils.get_mode_char_size(page_table_area)
     n_cell = len(table.cells)
     n_small_cell = 0
     for cell in table.cells:
-        cell_w, cell_h = utils.get_cell_size(cell)
-        if cell_w < mode_char_w or cell_h < mode_char_h:
+        cell_h, cell_w = utils.get_cell_size(cell)
+        if cell_h < mode_char_h or cell_w < mode_char_w:
             n_small_cell += 1
     if n_small_cell * 2 > n_cell - n_small_cell:
         return True
@@ -279,7 +280,7 @@ def remove_bar_graph(page, tables):
 
 
 def is_bar_graph(page, table):
-    n_col, n_row = utils.get_cell_nums(table)
+    n_row, n_col = utils.get_cell_nums(table)
     if (n_col == 1 or n_row == 1) and n_col + n_row > 4:
         n_cells = n_col + n_row - 1
         cropped_page = page.crop(table.bbox)
@@ -300,7 +301,7 @@ def remove_complicated_rects(tables):
 
 
 def is_complicated_rects(table):
-    n_col, n_row = utils.get_cell_nums(table)
+    n_row, n_col = utils.get_cell_nums(table)
     overlap_bbox = utils.get_overlapped_bboxes_pairs(table.cells, table.cells)
     if len(overlap_bbox) > len(table.cells):
         return True
