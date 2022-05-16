@@ -895,69 +895,17 @@ class TableFinder2(TableFinder):
             )  # v1.9
             # あいまいなので除きたい
             # 5/9 これが結構重要なメソッドだったので保留
-<<<<<<< HEAD
             self.tables = filtering.remove_bar_graph(self.page, self.tables)  # v2.0.1
             self.tables = filtering.remove_complicated_rects(self.tables)  # v2.0.2
             self.tables = filtering.remove_improper_tables_with_two_rects(
                 self.page, self.tables
             )  # v2.2.1
-=======
-            self.tables = filtering.remove_bar_graph(self.page, self.tables) # v2.0.1
-            self.tables = filtering.remove_complicated_rects(self.tables) # v2.0.2
->>>>>>> 7752b77d7d856297e7179307eb8fd55df90b7af0
 
         return self.tables
 
     def get_edges(self):
-<<<<<<< HEAD
         "strategy　はdefaultのlinesを使う前提"
         settings = self.settings
-=======
-        settings = self.settings
-        for name in ["vertical", "horizontal"]:
-            strategy = settings[name + "_strategy"]
-            if strategy not in TABLE_STRATEGIES:
-                raise ValueError(
-                    f'{name}_strategy must be one of {{{",".join(TABLE_STRATEGIES)}}}'
-                )
-            if strategy == "explicit":
-                if len(settings["explicit_" + name + "_lines"]) < 2:
-                    raise ValueError(
-                        f"If {strategy}_strategy == 'explicit', explicit_{name}_lines "
-                        f"must be specified as a list/tuple of two or more "
-                        f"floats/ints."
-                    )
-
-        v_strat = settings["vertical_strategy"]
-        h_strat = settings["horizontal_strategy"]
-
-        if v_strat == "lines":
-            v_base = utils.filter_edges(self.page.edges, "v")
-        elif v_strat == "lines_strict":
-            v_base = utils.filter_edges(self.page.edges, "v", edge_type="line")
-
-        v = v_base
-
-        if h_strat == "lines":
-            h_base = utils.filter_edges(self.page.edges, "h")
-        elif h_strat == "lines_strict":
-            h_base = utils.filter_edges(self.page.edges, "h", edge_type="line")
-
-        h = h_base
-
-        edges = list(v) + list(h)
-
-        edges = merge_edges_aemc(
-            edges,
-            snap_x_tolerance=settings["snap_x_tolerance"],
-            snap_y_tolerance=settings["snap_y_tolerance"],
-            join_x_tolerance=settings["join_x_tolerance"],
-            join_y_tolerance=settings["join_y_tolerance"],
-        )
-
-        return utils.filter_edges(edges, min_length=settings["edge_min_length"])
-
->>>>>>> 7752b77d7d856297e7179307eb8fd55df90b7af0
 
         v_base = utils.filter_edges(self.page.edges, "v")
         v = v_base
@@ -1027,7 +975,6 @@ def get_filtered_table_debug(page, edges, settings={}):
     return tables
 
 
-<<<<<<< HEAD
 def check_filters(page, table):
     result = list()
     chars = page.chars
@@ -1054,5 +1001,3 @@ def check_filters(page, table):
     if filtering.is_improper_two_rects(page, table):
         result.append(filtering.is_improper_three_rects.__name__)
     return result
-=======
->>>>>>> 7752b77d7d856297e7179307eb8fd55df90b7af0
