@@ -166,7 +166,7 @@ def is_table_with_one_cell(table):
 
 def remove_table_with_unusual_shape(tables):
     """
-    構成するセルの高さor幅がすべて異なるtableを除外する
+    構成するセルの高さ and 幅がすべて異なるtableを除外する
     """
     tables_adequate = list(
         filter(lambda table: not is_table_with_unusual_shape(table), tables)
@@ -186,7 +186,7 @@ def is_table_with_unusual_shape(table):
 def remove_tables_with_single_line(tables):
     """
     一行/一列しか存在しない表のうち、一行/一列の文字しか含まないと推定されるものを除外する。
-    タイトルの一文字一文字が矩形で囲まれ、表と五検知されるケースへの対処。
+    タイトルの一文字一文字が矩形で囲まれ、表と誤検知されるケースへの対処。
     """
     tables_adequate = list(
         filter(lambda table: not is_table_with_single_line(table), tables)
