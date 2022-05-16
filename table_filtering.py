@@ -119,9 +119,13 @@ def remove_tables_without_chars(tables, chars):
     tableと判定された領域のうち、文字を一切含まないものをtableから除外する
     """
     tables_adequate = list(
+<<<<<<< HEAD
         filter(
             lambda table: not is_table_not_overlapped_with_char(table, chars), tables
         )
+=======
+        filter(lambda table: not is_table_not_overlapped_with_char(table, chars), tables)
+>>>>>>> 7752b77d7d856297e7179307eb8fd55df90b7af0
     )
     return tables_adequate
 
