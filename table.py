@@ -860,15 +860,26 @@ class TableFinder2(TableFinder):
 
 def get_filtered_table_debug(page, edges, settings={}):
     import pdfplumber.table_filtering as filtering
-    from pdfplumber.table import (
-        Table,
-        TableFinder,
-        cells_to_tables,
-        edges_to_intersections,
-        intersections_to_cells,
-    )
+    # from pdfplumber.table import (
+    #     Table,
+    #     TableFinder,
+    #     cells_to_tables,
+    #     edges_to_intersections,
+    #     intersections_to_cells,
+    #     merge_edges
+    # )
 
     settings = TableFinder.resolve_table_settings(settings)
+
+    edges = merge_edges(
+        edges,
+        snap_x_tolerance=settings["snap_x_tolerance"],
+        snap_y_tolerance=settings["snap_y_tolerance"],
+        join_x_tolerance=settings["join_x_tolerance"],
+        join_y_tolerance=settings["join_y_tolerance"],
+    )
+
+
     edges = filtering.remove_too_long_edges(page, edges)
     edges = filtering.remove_terminal_edges(page, edges)
     edges = filtering.remove_colorless_edges(edges)  # v2.0

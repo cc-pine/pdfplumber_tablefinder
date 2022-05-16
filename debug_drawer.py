@@ -3,9 +3,15 @@ developing
 """
 
 
+import locale
+import os
+import subprocess
+
 import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageFont
+
+import pdfplumber
 
 
 class COLORS(object):
@@ -54,7 +60,7 @@ def visualize_table_finder_result(
     stroke_width=1,
     fontsize=15,
     resolution=150,
-    option={"snap_tolerance": 1e-2},
+    option={},
 ):
     res_ratio = resolution / DEFAULT_RESOLUTION
     table_finder = page.debug_tablefinder2(option)
@@ -72,6 +78,72 @@ def visualize_table_finder_result(
         )
         draw_rect(draw, x0, top, x1, bottom, fill, stroke, stroke_width, res_ratio)
         draw.text((x0, top), str(i), COLORS.BLUE, font=arial_font)
+    return annotated
+
+
+def one_page_pdf_to_result_png_with_ghost_script(
+    pdf_path,
+    temp_local_dir,
+    fill=DEFAULT_FILL,
+    stroke=DEFAULT_STROKE,
+    stroke_width=1,
+    fontsize=15,
+    resolution: int = 150,
+    option={},
+):
+    pdf = pdfplumber.open(pdf_path)
+    if len(pdf.pages) > 1:
+        raise ValueError("PDF need to be a single page.")
+    page = pdf.pages[0]
+
+    if type(resolution) != int:
+        raise ValueError(f"resolution must be int, not {type(resolution)}.")
+
+    pdf_name = pdf_path.split("/")[-1][:-4]
+    print(pdf_name)
+    img_path = temp_local_dir + f"{pdf_name}.png"
+    args = ["gs", "-sDEVICE=png16m", f"-r{resolution}", "-o", img_path, pdf_path]
+
+    # args = [
+    #     "gs",
+    #     "-sDEVICE=png16m",
+    #     f"-r{300}",
+    #     "-o", '"/Users/ryosuke/AEMC/gcf-table-extractor/textbook_rawdata/11111111-test/asdf.png"',
+    #     '"/Users/ryosuke/AEMC/gcf-table-extractor/textbook_rawdata/11111111-test/test_one_page.pdf"'
+    #     ]
+    # gs -sDEVICE=png16m -r300 -o aaa.png test_one_page.pdf
+
+    subprocess.run(args)
+
+    annotated = PIL.Image.open(img_path)
+    try:
+        resolution = annotated.info["dpi"][0]
+        if annotated.info["dpi"][0] != annotated.info["dpi"][1]:
+            raise ValueError("dpi must be the same for the row/col directions.")
+    except:
+        pass
+    res_ratio = resolution / DEFAULT_RESOLUTION
+    
+    table_finder = page.debug_tablefinder2(option)
+
+    try:
+        arial_font = PIL.ImageFont.truetype("arial.ttf", fontsize)
+    except:
+        arial_font = PIL.ImageFont.truetype("Arial Unicode.ttf", fontsize)
+
+    draw = PIL.ImageDraw.Draw(annotated, "RGBA")
+    for i, table in enumerate(table_finder.tables):
+        x0, top, x1, bottom = get_coords_for_plot_rect(
+            table.bbox, resolution, stroke_width
+        )
+        draw_rect(draw, x0, top, x1, bottom, fill, stroke, stroke_width, res_ratio)
+        draw.text((x0, top), str(i), COLORS.BLUE, font=arial_font)
+
+    try:
+        os.remove(img_path)
+    except:
+        pass
+
     return annotated
 
 

@@ -1,5 +1,4 @@
 __pycache__/
+.vscode/
 
-
-table_filtering_2.0.2.py
-table_filtering_2.1.0.py
+.python-version

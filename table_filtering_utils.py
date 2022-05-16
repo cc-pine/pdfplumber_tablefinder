@@ -1,7 +1,5 @@
 import numpy as np
 
-import pdfplumber
-
 
 def get_bbox_from_object(obj: dict) -> "tuple[float, float, float, float]":
     """
@@ -85,7 +83,7 @@ def get_cell_size(cell: "tuple[float, float, float, float]") -> "tuple[float, fl
     -----
     cellは(x0, top, x1, bottom)のタプル
     """
-    return cell[3] - cell[1],cell[2] - cell[0]
+    return cell[3] - cell[1], cell[2] - cell[0]
 
 
 def get_cell_idxs_overlapped_with_chars(
@@ -95,7 +93,7 @@ def get_cell_idxs_overlapped_with_chars(
     テーブルに含まれるセルについて、ページ上の文字と重なっているものの
     pdfplumber.table.Table.cellsにおけるindexのリストを返す。
     """
-    page_table_area = crop_page_within_table(page, table)
+    page_table_area = extract_table_from_page(page, table, method="within_bbox")
     cells_bbox = table.cells
     chars_bbox = get_bboxlist_from_objectlist(page_table_area.chars)
     overlap_list = get_overlapped_bboxes_pairs(cells_bbox, chars_bbox)
@@ -299,8 +297,10 @@ def get_cell_nums(table: "pdfplumber.table.Table") -> "tuple[int, int]":
     return n_row, n_col
 
 
-def crop_page_within_table(
-    page: "pdfplumber.page.Page", table: "pdfplumber.table.Table"
+def extract_table_from_page(
+    page: "pdfplumber.page.Page",
+    table: "pdfplumber.table.Table",
+    method: str = "within_bbox",
 ) -> "pdfplumber.page.CroppedPage":
     """
     Returns cropped page in the size of table.
@@ -326,7 +326,12 @@ def crop_page_within_table(
         bbox[2] + page_x0,
         bbox[3] + page_top,
     )
-    return page.within_bbox(bbox)
+    if method == "within_bbox":
+        return page.within_bbox(bbox)
+    elif method == "crop":
+        return page.crop(bbox)
+    else:
+        raise ValueError(f'Method need to be within_bbox or crop, not {method}.')
 
 
 def get_unique_list(seq: list) -> list:

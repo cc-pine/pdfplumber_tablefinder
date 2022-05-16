@@ -1,6 +1,6 @@
 from operator import itemgetter
 
-from pdfplumber import table_filtering_utils as utils
+from . import table_filtering_utils as utils
 
 
 def remove_too_long_edges(page, edges, ratio=0.95):
@@ -218,7 +218,7 @@ def remove_tables_with_many_small_cells(page, tables):
 
 
 def is_table_with_many_small_cells(page, table):
-    page_table_area = utils.crop_page_within_table(page, table)
+    page_table_area = utils.extract_table_from_page(page, table, method="within_bbox")
     mode_char_h, mode_char_w = utils.get_mode_char_size(page_table_area)
     n_cell = len(table.cells)
     n_small_cell = 0
@@ -265,7 +265,7 @@ def seems_to_be_title(page, table):
         return list(filter(lambda x: x["text"] not in MEANINGLESS_CHARS, chars))
 
     cells_with_overlap = utils.get_cell_idxs_overlapped_with_chars(table, page)
-    page_table_area = utils.crop_page_within_table(page, table)
+    page_table_area = utils.extract_table_from_page(page, table, method="within_bbox")
     cropped_chars = page_table_area.chars
     meaningful_chars = get_meaningful_chars(cropped_chars)
     return len(cells_with_overlap) >= len(meaningful_chars)
@@ -283,29 +283,29 @@ def is_bar_graph(page, table):
     n_row, n_col = utils.get_cell_nums(table)
     if (n_col == 1 or n_row == 1) and n_col + n_row > 4:
         n_cells = n_col + n_row - 1
-        cropped_page = page.crop(table.bbox)
+        cropped_page = utils.extract_table_from_page(page, table, method="crop")
         color_list = [x["non_stroking_color"] for x in cropped_page.rects]
         unique_color_list = utils.get_unique_list(color_list)
         return len(unique_color_list) >= n_cells + 1
     return False
 
 
-def remove_complicated_rects(tables):
+def remove_complicated_rects(tables, ratio1=2, ratio2=3):
     """
     セルが整列していない表は除外する
     """
     tables_adequate = list(
-        filter(lambda table: not is_complicated_rects(table), tables)
+        filter(lambda table: not is_complicated_rects(table, ratio1, ratio2), tables)
     )
     return tables_adequate
 
 
-def is_complicated_rects(table):
+def is_complicated_rects(table, ratio1=2, ratio2=3):
     n_row, n_col = utils.get_cell_nums(table)
     overlap_bbox = utils.get_overlapped_bboxes_pairs(table.cells, table.cells)
-    if len(overlap_bbox) > len(table.cells):
+    if len(overlap_bbox) > ratio1 * len(table.cells):
         return True
-    if n_col * n_row > 2 * len(table.cells):
+    if n_col * n_row > ratio2 * len(table.cells):
         return True
     return False
 
@@ -319,23 +319,25 @@ def remove_improper_tables_with_two_rects(page, tables, tolerance=1):
     )
     return tables_adequate
 
+
 def is_improper_two_rects(page, table, tolerance=1):
     if len(table.cells) != 2:
         return False
     else:
         n_row, n_col = utils.get_cell_nums(table)
-        rects = page.crop(table.bbox).rects
+        rects = utils.extract_table_from_page(page, table, method='crop').rects
         if n_row == 2:
             min_bottom = min(map(itemgetter("bottom"), rects))
-            max_top =max(map(itemgetter("top"), rects))
+            max_top = max(map(itemgetter("top"), rects))
             if max_top - min_bottom > tolerance:
                 return True
         elif n_col == 2:
             min_x1 = min(map(itemgetter("x1"), rects))
-            max_x0 =max(map(itemgetter("x0"), rects))
+            max_x0 = max(map(itemgetter("x0"), rects))
             if max_x0 - min_x1 > tolerance:
                 return True
         return False
+
 
 def is_improper_three_rects(table, ratio=10):
     # not in use
