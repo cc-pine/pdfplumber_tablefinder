@@ -283,11 +283,11 @@ class PageImage(object):
         )
         return self
 
-    def debug_tablefinder2(self, tf={}):
+    def debug_tablefinder2(self, img_json_path=None, tf={}):
         if isinstance(tf, TableFinder2):
             pass
         elif isinstance(tf, dict):
-            tf = self.page.debug_tablefinder2(tf)
+            tf = self.page.debug_tablefinder2(img_json_path, tf)
         else:
             raise ValueError(
                 "Argument must be instance of TableFinder"

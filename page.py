@@ -299,15 +299,15 @@ class Page(Container):
         return f"<Page:{self.page_number}>"
 
     ### for development
-    def debug_tablefinder2(self, table_settings={}):
-        return TableFinder2(self, table_settings)
+    def debug_tablefinder2(self, img_json_path=None, table_settings={}):
+        return TableFinder2(self, img_json_path, table_settings)
 
-    def find_tables2(self, table_settings={}):
-        return TableFinder2(self, table_settings).tables
+    def find_tables2(self, img_json_path=None, table_settings={}):
+        return TableFinder2(self, img_json_path, table_settings).tables
 
-    def extract_tables2(self, table_settings={}):
+    def extract_tables2(self, img_json_path=None, table_settings={}):
         table_settings = TableFinder2.resolve_table_settings(table_settings)
-        tables = self.find_tables2(table_settings)
+        tables = self.find_tables2(img_json_path, table_settings)
 
         extract_kwargs = {
             k: table_settings["text_" + k]
@@ -317,9 +317,9 @@ class Page(Container):
 
         return [table.extract(**extract_kwargs) for table in tables]
 
-    def extract_table2(self, table_settings={}):
+    def extract_table2(self, img_json_path=None, table_settings={}):
         table_settings = TableFinder2.resolve_table_settings(table_settings)
-        tables = self.find_tables2(table_settings)
+        tables = self.find_tables2(img_json_path, table_settings)
 
         if len(tables) == 0:
             return None

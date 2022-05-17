@@ -331,7 +331,7 @@ def extract_table_from_page(
     elif method == "crop":
         return page.crop(bbox)
     else:
-        raise ValueError(f'Method need to be within_bbox or crop, not {method}.')
+        raise ValueError(f"Method need to be within_bbox or crop, not {method}.")
 
 
 def get_unique_list(seq: list) -> list:
@@ -352,3 +352,43 @@ def get_unique_list(seq: list) -> list:
     """
     seen = []
     return [x for x in seq if x not in seen and not seen.append(x)]
+
+
+def convert_img_json1_to_drawing_bbox(points_dict, page_height):
+    """
+    (x1, y1, x2, y2)の形で格納されているbboxを(x0, top, x1, bottom)に変換
+    """
+    return [
+        float(points_dict["x1"]),
+        page_height - float(points_dict["y1"]),
+        float(points_dict["x2"]),
+        page_height - float(points_dict["y2"]),
+    ]
+
+
+def is_contain_bbox(bbox1, bbox2) -> bool:
+    """
+    bbox1がbbox2を内包しているかチェック
+    """
+    return (
+        bbox1[0] < bbox2[0]
+        and bbox1[1] < bbox2[1]
+        and bbox1[2] > bbox2[2]
+        and bbox1[3] > bbox2[3]
+    )
+
+
+def calc_IoU(bbox1, bbox2):
+    """
+    2つのbboxのIoUを計算する
+    """
+    dx = min(bbox1[2], bbox2[2]) - max(bbox1[0], bbox2[0])
+    dy = min(bbox1[3], bbox2[3]) - max(bbox1[1], bbox2[1])
+    if dx < 0 and dy < 0:
+        return 0
+    w1 = bbox1[2] - bbox1[0]
+    h1 = bbox1[3] - bbox1[1]
+    w2 = bbox2[2] - bbox2[0]
+    h2 = bbox2[3] - bbox2[1]
+    IoU = dx * dy / (w1 * h1 + w2 * h2 - dx * dy)
+    return IoU

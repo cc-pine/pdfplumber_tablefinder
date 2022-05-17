@@ -1,3 +1,4 @@
+import json
 from operator import itemgetter
 
 from . import table_filtering_utils as utils
@@ -325,7 +326,7 @@ def is_improper_two_rects(page, table, tolerance=1):
         return False
     else:
         n_row, n_col = utils.get_cell_nums(table)
-        rects = utils.extract_table_from_page(page, table, method='crop').rects
+        rects = utils.extract_table_from_page(page, table, method="crop").rects
         if n_row == 2:
             min_bottom = min(map(itemgetter("bottom"), rects))
             max_top = max(map(itemgetter("top"), rects))
@@ -362,3 +363,67 @@ def is_improper_three_rects(table, ratio=10):
             ):
                 return True
         return False
+
+
+def remove_tables_overlapping_with_images(page, tables, json_path):
+    img_bbox_list = img_json_2_img_bbox_list(page.height, json_path)
+    tables_adequate = list(
+        filter(
+            lambda table: not is_table_overlapping_with_images(page, table, img_bbox_list),
+            tables,
+        )
+    )
+    return tables_adequate
+
+
+def is_table_overlapping_with_images(page, table, img_bbox_list=[], json_path=None):
+    """
+    Notes
+    -----
+    img_bbox_listが与えられればそれを用い、json_pathが与えられればimg_bbox_listを生成し、
+    cellとimgとの重なりを調べる。
+    重なりの基準としてはIoUを用い、デフォルトではIoU > 0.4のcellが8割以上の時、表でないとみなす。
+    img_bbox_listが空でjson_pathも与えられなければFalseを返す。
+    """
+
+    # 基本的にはimg_bbox_listを渡して呼ぶが、個別のテーブルについて検証する時のために
+    # jsonのパスを渡しても実行できるようにしてある。
+    if json_path is not None:
+        img_bbox_list = img_json_2_img_bbox_list(page.height, json_path)
+
+    # テーブル全体を含むようなimgについては判定から除外する
+    for bbox in img_bbox_list:
+        if utils.is_contain_bbox(bbox, table.bbox):
+            img_bbox_list.remove(bbox)
+
+    # cellとimgの重なり具合(IoU)によって考える。
+    n_cell_overlapping_img = 0
+    for cell in table.cells:
+        for img_bbox in img_bbox_list:
+            if utils.calc_IoU(cell, img_bbox) > 0.4:
+                n_cell_overlapping_img += 1
+
+    if n_cell_overlapping_img > len(table.cells) * 0.8:
+        return True
+    else:
+        return False
+
+
+def img_json_2_img_bbox_list(page_height, json_path):
+
+    if type(json_path) is not str:
+        raise TypeError(f"json_path must be str, not f{type(json_path)}")
+
+    with open(json_path, mode="r") as f:
+        img_info = json.load(f)
+
+    bbox_info_list = list(img_info.values())[0]
+    img_bbox_list = []
+    for bbox_info in bbox_info_list:
+        img_bbox_list.append(
+            utils.convert_img_json1_to_drawing_bbox(
+                # coor_*_.jsonではx1, y1, x2, y2の形で格納されているので変換が必要
+                bbox_info["bbox"], page_height=page_height
+            )
+        )
+    return img_bbox_list

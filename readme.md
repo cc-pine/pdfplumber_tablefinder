@@ -1,6 +1,7 @@
 # Table Finder based on pdfplumber
 - pdfplumber標準のtable検知アルゴリズムを、複雑な図表が多数含まれる教科書向けに変更を加えています。
 - pdfplumberパッケージをこのリポジトリのものに置き換えて用いることを前提にしていましたが、table_filtering.pyとtable_filtering_utils.pyのみを独立して用いることも可能にする予定です。
+- pdfplumberにコードを追加する形で作成しているため、オリジナルと同様に用いることができます。
 
 ## オリジナルとの変更点
 - table.py, page.py, display.pyに存在する表検出関連のメソッドについて、AEMC用のもの(`.*_2()`)を追加しています。

@@ -1,4 +1,3 @@
-from collections import defaultdict
 import itertools
 from collections import defaultdict
 from operator import itemgetter
@@ -27,6 +26,7 @@ def snap_edges(
     snapped_h = utils.snap_objects(by_orientation["h"], "top", y_tolerance)
     return snapped_v + snapped_h
 
+
 def snap_edges_considering_color(
     edges, x_tolerance=DEFAULT_SNAP_TOLERANCE, y_tolerance=DEFAULT_SNAP_TOLERANCE
 ):
@@ -40,19 +40,24 @@ def snap_edges_considering_color(
         edge_color = e["stroking_color"]
         if edge_color is None:
             by_orientation[e["orientation"]][None].append(e)
-        else: by_orientation[e["orientation"]][tuple(edge_color)].append(e)
+        else:
+            by_orientation[e["orientation"]][tuple(edge_color)].append(e)
 
     snapped_edges = []
     for orientation in by_orientation:
-        if orientation=="v":
+        if orientation == "v":
             for color_edge in by_orientation[orientation].values():
                 if color_edge is not None:
-                    color_snapped_edges = utils.snap_objects(color_edge, "x0", x_tolerance)
+                    color_snapped_edges = utils.snap_objects(
+                        color_edge, "x0", x_tolerance
+                    )
                     snapped_edges += color_snapped_edges
-        elif orientation=="h":
+        elif orientation == "h":
             for color_edge in by_orientation[orientation].values():
                 if color_edge is not None:
-                    color_snapped_edges = utils.snap_objects(color_edge, "top", y_tolerance)
+                    color_snapped_edges = utils.snap_objects(
+                        color_edge, "top", y_tolerance
+                    )
                     snapped_edges += color_snapped_edges
     return snapped_edges
 
@@ -808,7 +813,7 @@ class TableFinder2(TableFinder):
     https://github.com/tabulapdf/tabula-extractor/issues/16
     """
 
-    def __init__(self, page, settings={}):
+    def __init__(self, page, img_json_path=None, settings={}):
         self.page = page
         self.settings = self.resolve_table_settings(settings)
         self.edges = self.get_edges()
@@ -821,6 +826,7 @@ class TableFinder2(TableFinder):
         self.tables_original = [
             Table(self.page, t) for t in cells_to_tables(self.cells)
         ]
+        self.img_json_path = img_json_path
 
         self.get_filtered_table()
 
@@ -862,6 +868,10 @@ class TableFinder2(TableFinder):
             self.tables = filtering.remove_improper_tables_with_two_rects(
                 self.page, self.tables
             )  # v2.2.1
+            if self.img_json_path:
+                self.tables = filtering.remove_tables_overlapping_with_images(
+                    self.page, self.tables, self.img_json_path
+                ) # v2.2.4
 
         return self.tables
 
@@ -890,6 +900,7 @@ class TableFinder2(TableFinder):
 
 def get_filtered_table_debug(page, edges, settings={}):
     import pdfplumber.table_filtering as filtering
+
     # from pdfplumber.table import (
     #     Table,
     #     TableFinder,
@@ -908,7 +919,6 @@ def get_filtered_table_debug(page, edges, settings={}):
         join_x_tolerance=settings["join_x_tolerance"],
         join_y_tolerance=settings["join_y_tolerance"],
     )
-
 
     edges = filtering.remove_too_long_edges(page, edges)
     edges = filtering.remove_terminal_edges(page, edges)

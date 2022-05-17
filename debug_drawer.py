@@ -28,7 +28,7 @@ DEFAULT_STROKE = DEFAULT_STROKE = COLORS.RED + (200,)
 
 def visualize_rectangular(
     page,
-    bboxs,
+    bboxes,
     fill=DEFAULT_FILL,
     stroke=DEFAULT_STROKE,
     stroke_width=1,
@@ -46,7 +46,7 @@ def visualize_rectangular(
         arial_font = PIL.ImageFont.truetype("Arial Unicode.ttf", fontsize)
 
     draw = PIL.ImageDraw.Draw(annotated, "RGBA")
-    for i, bbox in enumerate(bboxs):
+    for i, bbox in enumerate(bboxes):
         x0, top, x1, bottom = get_coords_for_plot_rect(bbox, resolution, stroke_width)
         draw_rect(draw, x0, top, x1, bottom, fill, stroke, stroke_width, res_ratio)
         draw.text((x0, top), str(i), COLORS.BLUE, font=arial_font)
@@ -123,7 +123,7 @@ def one_page_pdf_to_result_png_with_ghost_script(
     except:
         pass
     res_ratio = resolution / DEFAULT_RESOLUTION
-    
+
     table_finder = page.debug_tablefinder2(option)
 
     try:
