@@ -5,6 +5,7 @@ import numpy as np
 from pdfminer.pdftypes import PDFObjRef
 from pdfminer.psparser import PSLiteral
 from pdfminer.utils import PDFDocEncoding
+from .table_filtering_utils import *
 
 DEFAULT_X_TOLERANCE = 3
 DEFAULT_Y_TOLERANCE = 3
@@ -702,6 +703,8 @@ def get_bbox_from_object(obj):
 def get_bboxlist_from_objectlist(obj_list):
     return [get_bbox_from_object(obj) for obj in obj_list]
 
+def get_bboxlist_from_tablelist(table_list):
+    return [table.bbox for table in table_list]
 
 def get_overlapping_index(overlap_list, get_first=True):
     if get_first:
